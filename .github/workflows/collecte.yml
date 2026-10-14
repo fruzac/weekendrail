@@ -2,10 +2,13 @@ name: Collecte quotidienne
 
 on:
   schedule:
-    # Heures UTC : 6h15, 8h15 et 10h15 à Paris en été (une heure de moins en hiver)
+    # Heures UTC. La SNCF a publié la mise à jour du 14 octobre vers 12h (heure de Paris),
+    # donc on relève le matin, puis plusieurs fois en début d'après midi et le soir.
     - cron: "15 4 * * *"
-    - cron: "15 6 * * *"
     - cron: "15 8 * * *"
+    - cron: "30 10 * * *"
+    - cron: "30 12 * * *"
+    - cron: "30 16 * * *"
   workflow_dispatch:
 
 permissions:

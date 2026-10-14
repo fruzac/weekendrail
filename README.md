@@ -11,7 +11,7 @@ Chaque relevé devient une photo datée dans `data/snapshots/`. Avec le temps, c
 ## Les fichiers
 
 - `collector/collect.py` : le relevé
-- `.github/workflows/collecte.yml` : la planification (3 lancements par matin)
+- `.github/workflows/collecte.yml` : la planification (5 lancements par jour, un enregistrement seulement si les données ont changé)
 - `data/latest.json` : la dernière photo
 - `data/snapshots/AAAA-MM-JJ.json` : l'historique, une photo par jour
 
