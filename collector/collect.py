@@ -179,7 +179,7 @@ def main() -> None:
         "changements": comparer(precedente["trains"], trains) if precedente else [],
         "trains": trains,
     }
-    texte = json.dumps(photo, ensure_ascii=False, indent=1)
+    texte = json.dumps(photo, ensure_ascii=False, separators=(",", ":"))
     (SNAPSHOTS / f"{jour}.json").write_text(texte, encoding="utf-8")
     (DATA / "latest.json").write_text(texte, encoding="utf-8")
     print(f"Photo enregistrée : data/snapshots/{jour}.json")
