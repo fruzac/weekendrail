@@ -345,7 +345,7 @@
   function construire() {
     document.getElementById('app').innerHTML = `<header class="tete" id="tete">
 <span class="halo" aria-hidden="true"></span>
-<div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
+<div class="titre"><div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
 <div id="semaines" class="semaines" role="tablist" aria-label="Prochains weekends"></div>
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
@@ -523,7 +523,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     return `<div class="p-trajet${x ? ' on' : ''}">
 <div class="p-tete"><span class="p-mot">${mot}</span><span class="p-jour">${x ? `${JOURS[Math.floor(x.h / 24)]} · 0€` : 'rien dans ta plage'}</span></div>
 <div class="p-gare"><span class="p-nom">${esc(de)}</span><span class="p-heure">${x ? heure(x.depart) : ''}</span></div>
-<div class="p-ligne" aria-hidden="true"><i></i></div>
+<div class="p-ligne" aria-hidden="true"><span class="p-rail"></span>${x ? '<span class="p-objet"><i></i><i></i><i></i></span>' : ''}<span class="p-st de"></span><span class="p-st a"></span></div>
 <div class="p-gare droite"><span class="p-nom">${esc(a)}</span><span class="p-heure">${arrivee}</span></div>
 </div>`;
   }
@@ -594,9 +594,8 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   function rangee(x, nouveaux) {
     const parti = estParti(x.date, x.depart);
     const titre = x.sens === 'aller' ? court(x.ville) : `${court(x.ville)} → Paris`;
-    const nouveau = nouveaux.has(cleTrain(x.tgv)) ? '<span class="nouveau">nouveau</span>' : '';
     const detail = `${x.sens === 'aller' ? 'arr.' : 'arr. Paris'} ${x.arrivee} · ${enDuree(x.duree)}`;
-    const contenu = `<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)} <span class="r-via">${esc(x.precision)}</span>${nouveau}</span>${x.type === 'via' ? etapes(x) : ''}<span class="r-detail">${detail}</span></span>`;
+    const contenu = `<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)} <span class="r-via">${esc(x.precision)}</span></span>${x.type === 'via' ? etapes(x) : ''}<span class="r-detail">${detail}</span></span>`;
     if (parti) return `<div class="rangee ${x.type} parti">${contenu}<span class="r-prix">parti</span></div>`;
     const quoi = `${heure(x.depart)} ${x.sens === 'aller' ? `Paris vers ${x.ville}` : `${x.ville} vers Paris`} ${x.precision}`;
     return `<a class="rangee ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${FLECHE}</span></a>`;
@@ -665,9 +664,10 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 
   let pret = false; // pas d'animation au premier affichage
   const calme = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  function plier(el, ouvrir) {
+  function plier(el, ouvrir, bascule) {
     const avant = el.getBoundingClientRect().height;
-    el.classList.toggle('ouvert', ouvrir);
+    if (bascule) bascule();
+    else el.classList.toggle('ouvert', ouvrir);
     if (el._anim) el._anim.cancel();
     const apres = ouvrir ? el.scrollHeight : 0;
     if (calme || !pret || avant === apres || !el.animate) return;
@@ -743,8 +743,11 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (action === 'jour' || action === 'reglages') {
       const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
       const ouvert = !bloc.classList.contains('ouvert');
-      bloc.classList.toggle('ouvert', ouvert);
-      plier(action === 'jour' ? bloc.querySelector('.j-corps') : document.getElementById('pli-reglages'), ouvert);
+      const corps = action === 'jour' ? bloc.querySelector('.j-corps') : document.getElementById('pli-reglages');
+      plier(corps, ouvert, () => {
+        bloc.classList.toggle('ouvert', ouvert);
+        if (action === 'reglages') corps.classList.toggle('ouvert', ouvert);
+      });
       b.setAttribute('aria-expanded', String(ouvert));
       if (action === 'jour') etat.ouverts.set(bloc.dataset.cle, ouvert);
       return;
