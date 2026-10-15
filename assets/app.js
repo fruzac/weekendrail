@@ -14,8 +14,6 @@
     { cle: 'soir', nom: 'Soir', aide: 'après 18h' },
   ];
   const BORNES = { matin: [0, 12], aprem: [12, 18], soir: [18, 24] };
-  const DEBUT_AXE = 5;
-  const FIN_AXE = 24;
   const GARES = {
     'PARIS (intramuros)': 'Paris',
     'LYON (intramuros)': 'Lyon',
@@ -52,7 +50,6 @@
     aller: ['Grenoble'],
     retour: ['Grenoble'],
     synchro: true,
-    vue: 'frise',
     tout: false,
     payants: false,
     creneaux: { ven: ['soir'], sam: ['matin'], dim: ['aprem', 'soir'], lun: ['matin'] },
@@ -65,10 +62,11 @@
     gauche: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>',
     droite: '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>',
     reglages: '<svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4"/></svg>',
+    chevron: '<svg class="chev" aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M6 9l6 6 6-6"/></svg>',
     ouvrir: '<svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M8 7h9v9"/></svg>',
   };
 
-  const etat = { reglages: chargerReglages(), donnees: null, ter: null, vendredi: null, combo: null };
+  const etat = { reglages: chargerReglages(), donnees: null, ter: null, vendredi: null, combo: null, sens: 'aller', ouverts: null, cache: new Map() };
 
   /* ---------- Réglages ---------- */
 
@@ -92,7 +90,6 @@
       aller: villes(lu.aller, DEFAUT.aller),
       retour: villes(lu.retour, DEFAUT.retour),
       synchro: typeof lu.synchro === 'boolean' ? lu.synchro : DEFAUT.synchro,
-      vue: ['frise', 'grille', 'rubans'].includes(lu.vue) ? lu.vue : DEFAUT.vue,
       tout: typeof lu.tout === 'boolean' ? lu.tout : DEFAUT.tout,
       payants: typeof lu.payants === 'boolean' ? lu.payants : DEFAUT.payants,
       creneaux,
@@ -273,6 +270,12 @@
   }
 
   function trajetsDuJour(jour) {
+    const cle = `${jour.date}|${jour.sens}`;
+    if (!etat.cache.has(cle)) etat.cache.set(cle, calculerTrajets(jour));
+    return etat.cache.get(cle);
+  }
+
+  function calculerTrajets(jour) {
     const directs = trainsDuJour(jour).map(trajetDirect);
     const via = correspondances(jour);
     return [...directs, ...via].sort((a, b) => a.debut - b.debut || (a.type === 'direct' ? -1 : 1));
@@ -304,6 +307,9 @@
 
   /* ---------- Affichage ---------- */
 
+  const COURT = { l: 358, h: 214, milieu: 107 };
+  const NOM_COURT = { 'Saint Marcellin': 'St Marcellin' };
+
   function bandeau(jours) {
     const d = etat.donnees;
     const liste = weekends();
@@ -315,19 +321,62 @@
       : `ven ${debut.getUTCDate()} ${MOIS_COURT[debut.getUTCMonth()]} → lun ${fin.getUTCDate()} ${MOIS_COURT[fin.getUTCMonth()]}`;
     const actuel = etat.vendredi === vendrediDe(aujourdhui());
     const maj = instant(d.maj_sncf);
-    const r = etat.reglages;
-    return `<header class="bandeau">
-<div class="entete"><span>${maj ? `SNCF · ${esc(maj)}` : 'SNCF'}</span><span>relevé ${esc(instant(d.releve))}</span></div>
-<div class="titre">
-<h1>${actuel ? 'Ton weekend' : 'Plus tard'}</h1>
-<div class="navigation">
+    const s = etat.sens;
+    const bouton = (cle, texte) => `<button type="button" data-action="sens" data-sens="${cle}" aria-pressed="${s === cle}" class="${s === cle ? 'active' : ''}">${texte}</button>`;
+    return `<header class="bandeau terre">
+<div class="haut">
+<div class="titre"><span class="sur">${maj ? `SNCF · ${esc(maj)}` : 'SNCF'}</span><h1>${actuel ? 'Ton weekend' : 'Plus tard'}</h1><span class="plage">${plage}</span></div>
 <button type="button" class="rond" data-action="precedent" aria-label="Weekend précédent"${i <= 0 ? ' disabled' : ''}>${ICONES.gauche}</button>
-<span class="plage">${plage}</span>
 <button type="button" class="rond" data-action="suivant" aria-label="Weekend suivant"${i >= liste.length - 1 ? ' disabled' : ''}>${ICONES.droite}</button>
 </div>
-</div>
-<div class="destinations"><div class="puces defile">${puces(r.aller, 'aller')}</div><button type="button" class="bouton-filtres" data-action="filtres">${ICONES.reglages}Filtres</button></div>
+<div class="sens" role="group" aria-label="Sens du schéma">${bouton('aller', 'Aller · ven, sam')}${bouton('retour', 'Retour · dim, lun')}</div>
+${schema(jours)}
+<div class="destinations"><div class="puces defile">${puces(villesPour(s), 'ville')}</div><button type="button" class="bouton-filtres" data-action="filtres">${ICONES.reglages}Filtres</button></div>
 </header>`;
+  }
+
+  /* Le court : Paris d'un côté du filet, les destinations de l'autre. Au retour, le court se retourne. */
+  function schema(jours) {
+    const sens = etat.sens;
+    const aller = sens === 'aller';
+    const X = (x) => (aller ? x : COURT.l - x);
+    const villes = villesPour(sens);
+    const zero = new Set();
+    for (const j of jours.filter((x) => x.sens === sens)) {
+      for (const tr of trajetsDuJour(j)) {
+        if (tr.zero && dansCreneau(j, tr.depart) && !estParti(tr.date, tr.depart)) zero.add(tr.ville);
+      }
+    }
+    const n = villes.length;
+    const ys = villes.map((_, k) => (n === 1 ? COURT.milieu : Math.round(40 + (k * 134) / (n - 1))));
+    const chemin = (y) => `M${X(60)} ${COURT.milieu} C${X(150)} ${COURT.milieu} ${X(196)} ${y} ${X(290)} ${y}`;
+    const ancre = aller ? 'end' : 'start';
+    const traits = villes.map((v, k) => {
+      const on = zero.has(v);
+      return `<path d="${chemin(ys[k])}" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round"${on ? '' : ' stroke-dasharray="4 7" opacity="0.6"'}/>`;
+    }).join('');
+    const gares = villes.map((v, k) => {
+      const on = zero.has(v);
+      const y = ys[k];
+      return `<circle cx="${X(302)}" cy="${y}" r="9" fill="${on ? '#00503C' : '#C8562A'}" stroke="#FFFFFF" stroke-width="3"/>
+<text x="${X(288)}" y="${y - 9}" text-anchor="${ancre}" class="s-nom">${esc(NOM_COURT[v] || v)} <tspan class="${on ? 's-zero' : 's-rien'}">· ${on ? '0€' : 'rien'}</tspan></text>`;
+    }).join('');
+    const premiere = villes.findIndex((v) => zero.has(v));
+    const calme = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const balle = premiere >= 0 && !calme
+      ? `<circle r="5" fill="#E2E86A" stroke="#0B3A2C" stroke-width="1"><animateMotion dur="2.6s" repeatCount="indefinite" path="${chemin(ys[premiere])}" keyPoints="${aller ? '0;1' : '1;0'}" keyTimes="0;1" calcMode="linear"/></circle>`
+      : '';
+    const resume = villes.map((v) => `${v} ${zero.has(v) ? '0€' : 'rien'}`).join(', ');
+    return `<svg class="schema" role="img" aria-label="${aller ? 'Aller, de Paris vers' : 'Retour, vers Paris depuis'} : ${esc(resume)}" viewBox="0 0 ${COURT.l} ${COURT.h}" fill="none">
+<rect x="8" y="8" width="342" height="198" stroke="#FFFFFF" stroke-width="3"/>
+<path d="M8 30h342M8 184h342M96 30v154M262 30v154M96 107h166" stroke="#FFFFFF" stroke-width="2" opacity="0.8"/>
+<path d="M179 4v206" stroke="#FFFFFF" stroke-width="5"/>
+<path d="M179 4v206" stroke="#00503C" stroke-width="1.5" stroke-dasharray="3 3"/>
+${traits}
+<circle cx="${X(44)}" cy="${COURT.milieu}" r="15" fill="#FFFFFF" stroke="#00503C" stroke-width="4"/>
+<text x="${X(44)}" y="141" text-anchor="middle" class="s-paris">PARIS</text>
+${gares}${balle}
+</svg>`;
   }
 
   function puces(liste, action) {
@@ -337,25 +386,18 @@
     }).join('');
   }
 
-  function vues() {
-    const v = etat.reglages.vue;
-    const b = (cle, nom) => `<button type="button" data-action="vue" data-vue="${cle}" aria-pressed="${v === cle}" class="${v === cle ? 'active' : ''}">${nom}</button>`;
-    return `<nav class="segments" aria-label="Vues">${b('frise', 'Frise')}${b('grille', 'Grille')}${b('rubans', 'Rubans')}</nav>`;
-  }
-
   function suggestion() {
     const { meilleur, allers, retours } = etat.combo;
     if (meilleur) {
       const { a, r, sur } = meilleur;
-      const ou = a.ville === r.ville ? `à ${esc(a.ville)}` : 'sur place';
-      return `<section class="suggestion">
-<div class="s-gauche"><span class="mono">suggestion</span><span class="s-combo">${jourCourt(a.date)} ${heure(a.depart)} · ${jourCourt(r.date)} ${heure(r.depart)}</span></div>
-<div class="s-droite"><span class="s-heures">${Math.floor(sur / 60)} h</span><span class="mono">${ou}</span></div>
+      return `<section class="combo">
+<div class="c-texte"><span class="c-sur">meilleur combo · ${esc(a.ville)}</span><span class="c-quand">${jourCourt(a.date)} ${heure(a.depart)} · ${jourCourt(r.date)} ${heure(r.depart)}</span></div>
+<div class="c-heures terre">${Math.floor(sur / 60)}H</div>
 </section>`;
     }
     const n = (x, mot) => `${x} ${mot}${x > 1 ? 's' : ''}`;
-    return `<section class="suggestion">
-<div class="s-gauche"><span class="mono">pas encore de combo à 0€</span><span class="s-combo">${n(allers, 'aller')} · ${n(retours, 'retour')}</span></div>
+    return `<section class="combo">
+<div class="c-texte"><span class="c-sur">pas encore de combo à 0€</span><span class="c-quand">${n(allers, 'aller')} · ${n(retours, 'retour')}</span></div>
 </section>`;
   }
 
@@ -367,46 +409,27 @@
     return tags.length ? `<span class="etiquettes">${tags.join('')}</span>` : '';
   }
 
-  function boutonPrendre(tr, parti) {
-    if (parti) return '<span class="statut">parti</span>';
-    const quoi = `${heure(tr.depart)} ${tr.sens === 'aller' ? `Paris → ${tr.ville}` : `${tr.ville} → Paris`}`;
-    return `<a class="prendre" href="${esc(tr.lien)}" target="_blank" rel="noopener" aria-label="0€, ouvrir ${esc(quoi)} dans SNCF Connect">0€${ICONES.ouvrir}</a>`;
-  }
-
-  function rangeeDirecte(tr, changements, suggeres) {
+  function detail(tr) {
     const t = tr.tgv;
-    const parti = estParti(t.date, t.depart);
+    if (tr.type === 'via') {
+      const ter = tr.ter.car ? 'Car' : 'TER';
+      return tr.sens === 'aller'
+        ? `via ${esc(NOM_VIA[tr.noeud])} + ${ter} · arr. ${heure(tr.ter.arrivee)}`
+        : `${ter}, puis TGV ${heure(t.depart)} à ${esc(NOM_VIA[tr.noeud])} · arr. Paris ${heure(t.arrivee)}`;
+    }
     const autre = tr.sens === 'aller' ? nomGare(t.destination) : nomGare(t.origine);
     const reste = autre.startsWith(`${tr.ville} `) ? autre.slice(tr.ville.length + 1) : autre;
     const precision = autre !== tr.ville ? esc(reste) : 'direct';
-    const arrivee = tr.sens === 'aller' ? `arr. ${heure(t.arrivee)}` : `arr. Paris ${heure(t.arrivee)}`;
-    const classes = ['rangee', suggeres.has(tr.cle) ? 'suggere' : '', parti ? 'parti' : ''].filter(Boolean).join(' ');
-    return `<article class="${classes}">
-<span class="heure">${heure(t.depart)}</span>
-<div class="infos">${etiquettes(tr, changements, suggeres)}<span class="trajet">${esc(tr.ville)} <span class="discret">${precision}</span></span><span class="meta">${arrivee} · ${enDuree(dureeMinutes(t))} · n°${esc(t.train)}</span></div>
-${boutonPrendre(tr, parti)}
-</article>`;
+    return `${precision} · ${tr.sens === 'aller' ? 'arr.' : 'arr. Paris'} ${heure(t.arrivee)}`;
   }
 
-  function rangeeVia(tr, changements, suggeres) {
-    const t = tr.tgv;
+  function rangee(tr, changements, suggeres) {
     const parti = estParti(tr.date, tr.depart);
-    const nom = NOM_NOEUD[tr.noeud];
-    const ter = tr.ter.car ? 'Car' : 'TER';
-    const etapeTgv = tr.sens === 'aller'
-      ? `<div class="etape tgv"><b>TGV</b><span>jusqu'à ${esc(nom)}, ${heure(t.arrivee)}</span><span class="prix">0€</span></div>`
-      : `<div class="etape tgv"><b>TGV</b><span>${heure(t.depart)}, arr. Paris ${heure(t.arrivee)}</span><span class="prix">0€</span></div>`;
-    const etapeTer = tr.sens === 'aller'
-      ? `<div class="etape ter"><b>${ter}</b><span>${heure(tr.ter.depart)}, arr. ${heure(tr.ter.arrivee)}</span></div>`
-      : `<div class="etape ter"><b>${ter}</b><span>jusqu'à ${esc(nom)}, ${heure(tr.ter.arrivee)}</span></div>`;
-    const arrivee = tr.sens === 'aller' ? `arr. ${heure(tr.ter.arrivee)}` : `arr. Paris ${heure(t.arrivee)}`;
-    const classes = ['rangee', 'via', suggeres.has(tr.cle) ? 'suggere' : '', parti ? 'parti' : ''].filter(Boolean).join(' ');
-    return `<article class="${classes}">
-<span class="heure">${heure(tr.depart)}</span>
-<div class="infos">${etiquettes(tr, changements, suggeres)}<span class="trajet">${esc(tr.ville)} <span class="discret">via ${esc(NOM_VIA[tr.noeud])}</span></span><span class="meta">${arrivee} · ${enDuree(tr.fin - tr.debut)}</span>
-<div class="etapes">${tr.sens === 'aller' ? etapeTgv + etapeTer : etapeTer + etapeTgv}</div></div>
-${boutonPrendre(tr, parti)}
-</article>`;
+    const titre = tr.sens === 'aller' ? tr.ville : `${tr.ville} → Paris`;
+    const contenu = `<span class="r-heure">${heure(tr.depart)}</span><span class="r-infos">${etiquettes(tr, changements, suggeres)}<span class="r-titre">${esc(titre)}</span><span class="r-detail">${detail(tr)}</span></span>`;
+    if (parti) return `<div class="rangee parti">${contenu}<span class="r-prix">parti</span></div>`;
+    const quoi = `${heure(tr.depart)} ${tr.sens === 'aller' ? `Paris → ${tr.ville}` : `${tr.ville} → Paris`}`;
+    return `<a class="rangee" href="${esc(tr.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${ICONES.ouvrir}</span></a>`;
   }
 
   function lignesPayants(payants) {
@@ -422,113 +445,52 @@ ${boutonPrendre(tr, parti)}
     }).join('');
   }
 
+  function compteZero(j) {
+    return trajetsDuJour(j).filter((tr) => tr.zero && dansCreneau(j, tr.depart) && !estParti(tr.date, tr.depart));
+  }
+
   function blocJour(j, changements, suggeres) {
     const tous = trajetsDuJour(j);
     const visibles = tous.filter((tr) => dansCreneau(j, tr.depart));
     const zero = visibles.filter((tr) => tr.zero);
     const payants = visibles.filter((tr) => !tr.zero);
     const zeroHors = tous.filter((tr) => tr.zero && !dansCreneau(j, tr.depart)).length;
-    const rangees = zero.map((tr) => (tr.type === 'via' ? rangeeVia(tr, changements, suggeres) : rangeeDirecte(tr, changements, suggeres))).join('');
-    const vide = zero.length ? '' : '<p class="vide">Rien à 0€ sur tes créneaux pour l\'instant.</p>';
+    const dispo = compteZero(j);
+    let resume = '<span class="j-rien">aucun 0€</span>';
+    if (dispo.length === 1) resume = `<span class="j-un">${heure(dispo[0].depart)}<span class="pastille">0€</span></span>`;
+    else if (dispo.length > 1) resume = `<span class="pastille">${dispo.length} à 0€</span>`;
+    const rangees = zero.map((tr) => rangee(tr, changements, suggeres)).join('');
+    const vide = zero.length ? '' : '<p class="vide">Pas de 0€ pour l\'instant.</p>';
     let bas = '';
     if (payants.length) {
+      const texte = `${payants.length} payant${payants.length > 1 ? 's' : ''} sur tes horaires`;
       bas = etat.reglages.payants
-        ? `<div class="payants"><span class="mono discret">payants</span>${lignesPayants(payants)}</div>`
-        : `<button type="button" class="pied-bloc" data-action="payants">${payants.length} payant${payants.length > 1 ? 's' : ''} sur tes créneaux</button>`;
+        ? `<div class="payants">${lignesPayants(payants)}</div><button type="button" class="pied-bloc" data-action="payants">masquer les payants</button>`
+        : `<button type="button" class="pied-bloc" data-action="payants">${texte}</button>`;
     }
     const hors = zeroHors && !etat.reglages.tout
-      ? `<button type="button" class="pied-bloc vert" data-action="tout">+ ${zeroHors} à 0€ hors créneaux</button>`
+      ? `<button type="button" class="pied-bloc vert" data-action="tout">+ ${zeroHors} à 0€ hors horaires</button>`
       : '';
-    const compte = zero.filter((tr) => !estParti(tr.date, tr.depart)).length;
-    return `<section class="bloc" aria-label="${j.nom} ${jourDuMois(j.date)}">
-<div class="bloc-tete"><h2>${j.nom} ${jourDuMois(j.date)}</h2><span class="mono discret">${j.sens}</span><span class="compte${compte ? '' : ' nul'}">${compte} à 0€</span></div>
-${rangees}${vide}${bas}${hors}
-</section>`;
+    const ouvert = etat.ouverts.has(j.cle);
+    return `<details class="jour"${ouvert ? ' open' : ''}>
+<summary data-action="jour" data-jour="${j.cle}"><span class="j-nom">${j.nom} ${jourDuMois(j.date)}</span><span class="j-sens">${j.sens}</span><span class="j-resume">${resume}</span>${ICONES.chevron}</summary>
+<div class="j-corps">${rangees}${vide}${bas}${hors}</div>
+</details>`;
   }
 
-  function frise(jours) {
+  function listeJours(jours) {
     const changements = indexChangements();
     const m = etat.combo.meilleur;
     const suggeres = new Set(m ? [m.a.cle, m.r.cle] : []);
-    const p = etat.reglages.payants;
-    const bascule = `<div class="segments petit" role="group" aria-label="Affichage">
-<button type="button" data-action="essentiel" aria-pressed="${!p}" class="${p ? '' : 'active'}">Essentiel</button>
-<button type="button" data-action="payants" aria-pressed="${p}" class="${p ? 'active' : ''}">Avec les payants</button>
-</div>`;
-    const masquer = etat.reglages.tout
-      ? '<button type="button" class="lien" data-action="masquer">revenir à mes créneaux</button>'
+    const revenir = etat.reglages.tout
+      ? '<button type="button" class="lien" data-action="masquer">revenir à mes horaires</button>'
       : '';
-    return `${bascule}${masquer}${jours.map((j) => blocJour(j, changements, suggeres)).join('')}`;
-  }
-
-  function pastille(t) {
-    const plusieurs = villesPour(t.sens).length > 1;
-    return `<div class="pastille${t.zero ? ' zero' : ''}${estParti(t.date, t.depart) ? ' parti' : ''}"><span class="p-haut"><span>${heure(t.depart)}</span>${t.zero ? '<span>0€</span>' : ''}</span>${plusieurs ? `<span class="p-bas">${esc(t.ville)}</span>` : ''}</div>`;
-  }
-
-  function grille(jours) {
-    const entetes = jours.map((j) => `<div class="g-entete"><b>${j.court} ${jourDuMois(j.date)}</b><span>${j.sens}</span></div>`).join('');
-    const lignes = MOMENTS.map((m) => {
-      const cellules = jours.map((j) => {
-        const trains = trainsDuJour(j).filter((t) => moment(t.depart) === m.cle);
-        const hors = !etat.reglages.tout && !creneauxDe(j).includes(m.cle);
-        if (hors) {
-          const z = trains.filter((t) => t.zero && !estParti(t.date, t.depart)).length;
-          return `<div class="g-cellule hors"><span>hors créneau</span>${z ? `<b>${z} à 0€</b>` : ''}</div>`;
-        }
-        if (!trains.length) return '<div class="g-cellule sans">aucun</div>';
-        return `<div class="g-cellule">${trains.map(pastille).join('')}</div>`;
-      }).join('');
-      return `<div class="g-moment"><b>${m.nom}</b><span>${m.aide}</span></div>${cellules}`;
-    }).join('');
-    return `<section class="bloc grille">
-<div class="g-titre"><span>D'un coup d'œil</span><span class="mono discret">trains directs</span></div>
-<div class="g-table"><span></span>${entetes}${lignes}</div>
-</section>`;
-  }
-
-  const pourcent = (h) => ((Math.min(Math.max(h, DEBUT_AXE), FIN_AXE) - DEBUT_AXE) / (FIN_AXE - DEBUT_AXE)) * 100;
-
-  function rubans(jours) {
-    const graduations = [6, 9, 12, 15, 18, 21, 24].map((h) => `<span style="left:${pourcent(h)}%">${h}h</span>`).join('');
-    const traits = [6, 9, 12, 15, 18, 21].map((h) => `<span class="r-trait" style="left:${pourcent(h)}%"></span>`).join('');
-    const blocs = jours.map((j) => {
-      const trains = trainsDuJour(j).slice().sort((a, b) => minutes(a.depart) - minutes(b.depart));
-      const voies = [];
-      const barres = trains.map((t) => {
-        const debut = minutes(t.depart) / 60;
-        const fin = debut + dureeMinutes(t) / 60;
-        let v = voies.findIndex((f) => f <= debut);
-        if (v === -1) {
-          v = voies.length;
-          voies.push(fin);
-        } else {
-          voies[v] = fin;
-        }
-        const gauche = pourcent(debut);
-        const largeur = Math.max(pourcent(fin) - gauche, 7);
-        return `<div class="barre${t.zero ? ' zero' : ''}${estParti(t.date, t.depart) ? ' parti' : ''}" style="left:${gauche}%;width:${largeur}%;top:${v * 34}px"><span>${heure(t.depart)}</span><span>${t.zero ? '0€' : ''}</span></div>`;
-      }).join('');
-      const hauteur = Math.max(voies.length, 1) * 34 - 4;
-      const bandes = creneauxDe(j).map((m) => {
-        const [a, b] = BORNES[m];
-        const g = pourcent(a);
-        return `<span class="r-bande" style="left:${g}%;width:${pourcent(b) - g}%"></span>`;
-      }).join('');
-      return `<div class="r-jour"><b>${j.nom} ${jourDuMois(j.date)}</b><span class="mono discret">${j.sens}</span></div>
-<div class="r-voie" style="height:${hauteur}px">${bandes}${traits}${barres}${trains.length ? '' : '<span class="r-vide">aucun train</span>'}</div>`;
-    }).join('');
-    return `<section class="bloc rubans">
-<div class="g-titre"><span>Heure par heure</span><span class="mono discret">trains directs</span></div>
-<div class="r-axe">${graduations}</div>
-${blocs}
-<div class="r-legende mono discret"><span><i class="l-zero"></i>0€</span><span><i class="l-payant"></i>payant</span><span><i class="l-bande"></i>tes créneaux</span></div>
-</section>`;
+    return `${revenir}<div class="jours">${jours.map((j) => blocJour(j, changements, suggeres)).join('')}</div>`;
   }
 
   function pied() {
     const ter = etat.ter && etat.ter.genere ? ` Horaires TER du ${esc(instant(etat.ter.genere))}.` : '';
-    return `<footer class="pied mono discret">Open data SNCF, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</footer>`;
+    return `<footer class="pied">Open data SNCF, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</footer>`;
   }
 
   function contenuFiltres() {
@@ -541,8 +503,8 @@ ${blocs}
 <div class="f-tete"><h2>Filtres</h2><button class="bouton-filtres clair" value="ok">Fermer</button></div>
 <section class="f-bloc"><h3>Aller vers</h3><div class="puces">${puces(r.aller, 'f-aller')}</div></section>
 <section class="f-bloc"><h3>Retour depuis</h3><div class="puces">${puces(r.retour, 'f-retour')}</div><p>Grenoble et Saint Marcellin incluent les correspondances : TGV à 0€ jusqu'à Lyon, Valence ou Chambéry, puis TER, 4h de trajet au plus.</p></section>
-<section class="f-bloc"><h3>Créneaux</h3><div class="f-creneaux">${creneaux}</div>
-<label class="interrupteur"><input type="checkbox" data-action="f-tout"${r.tout ? ' checked' : ''}><span>Afficher aussi les trains hors créneaux</span></label></section>
+<section class="f-bloc"><h3>Horaires</h3><div class="f-creneaux">${creneaux}</div>
+<label class="interrupteur"><input type="checkbox" data-action="f-tout"${r.tout ? ' checked' : ''}><span>Afficher aussi les trains hors horaires</span></label></section>
 <button class="principal" value="ok">Voir les trains</button>
 </form>`;
   }
@@ -553,10 +515,10 @@ ${blocs}
 
   function render() {
     const jours = joursDuWeekend();
+    etat.cache = new Map();
     etat.combo = calculerCombo(jours);
-    const v = etat.reglages.vue;
-    const contenu = v === 'grille' ? grille(jours) : v === 'rubans' ? rubans(jours) : frise(jours);
-    document.getElementById('app').innerHTML = `${bandeau(jours)}<div class="corps">${suggestion()}${vues()}${contenu}${pied()}</div>`;
+    if (!etat.ouverts) etat.ouverts = new Set(jours.filter((j) => compteZero(j).length).map((j) => j.cle));
+    document.getElementById('app').innerHTML = `${bandeau(jours)}<div class="corps">${suggestion()}${listeJours(jours)}${pied()}</div>`;
     const d = document.getElementById('filtres');
     if (d.open) d.innerHTML = contenuFiltres();
   }
@@ -578,6 +540,10 @@ ${blocs}
     render();
   }
 
+  function sensParDefaut() {
+    return aujourdhui() >= ajouterJours(etat.vendredi, 2) ? 'retour' : 'aller';
+  }
+
   function surClic(e) {
     const dialogue = document.getElementById('filtres');
     if (e.target === dialogue) {
@@ -589,7 +555,28 @@ ${blocs}
     const r = etat.reglages;
     const action = b.dataset.action;
     if (action === 'f-tout') return;
-    if (action === 'aller' || action === 'f-aller') {
+    if (action === 'jour') {
+      e.preventDefault();
+      const j = JOURS.find((x) => x.cle === b.dataset.jour);
+      if (etat.ouverts.has(j.cle)) {
+        etat.ouverts.delete(j.cle);
+      } else {
+        etat.ouverts.add(j.cle);
+        etat.sens = j.sens;
+      }
+      render();
+      return;
+    }
+    if (action === 'sens') {
+      etat.sens = b.dataset.sens;
+      render();
+      return;
+    }
+    if (action === 'ville') {
+      const s = etat.sens;
+      basculer(r[s], b.dataset.ville);
+      if (r.synchro) r[s === 'aller' ? 'retour' : 'aller'] = [...r[s]];
+    } else if (action === 'f-aller') {
       basculer(r.aller, b.dataset.ville);
       if (r.synchro) r.retour = [...r.aller];
     } else if (action === 'f-retour') {
@@ -605,15 +592,15 @@ ${blocs}
     } else if (action === 'masquer') {
       r.tout = false;
     } else if (action === 'payants') {
-      r.payants = true;
-    } else if (action === 'essentiel') {
-      r.payants = false;
-    } else if (action === 'vue') {
-      r.vue = b.dataset.vue;
+      r.payants = !r.payants;
     } else if (action === 'precedent' || action === 'suivant') {
       const liste = weekends();
       const i = liste.indexOf(etat.vendredi) + (action === 'suivant' ? 1 : -1);
-      if (i >= 0 && i < liste.length) etat.vendredi = liste[i];
+      if (i >= 0 && i < liste.length) {
+        etat.vendredi = liste[i];
+        etat.ouverts = null;
+        etat.sens = sensParDefaut();
+      }
     } else if (action === 'filtres') {
       dialogue.innerHTML = contenuFiltres();
       dialogue.showModal();
@@ -642,6 +629,7 @@ ${blocs}
     const liste = weekends();
     const v = vendrediDe(aujourdhui());
     etat.vendredi = liste.includes(v) ? v : liste[0];
+    etat.sens = sensParDefaut();
     render();
     app.addEventListener('click', surClic);
     const dialogue = document.getElementById('filtres');
