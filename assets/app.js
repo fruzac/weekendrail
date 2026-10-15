@@ -38,8 +38,9 @@
   const ATTENTE_MAX = 75;
   const TOTAL_MAX = 240;
 
-  const DEFAUT = { mode: 'ar', sensSimple: 'aller', aller: 'Grenoble', retour: 'Grenoble', ad: 17, aa: 48, rd: 60, ra: 81 };
-  const CLE_STOCKAGE = 'weekendrail:reglages:v2';
+  // Par défaut : aller du vendredi midi au samedi 13h, retour du samedi 17h au lundi 6h (le 5h45 de Grenoble).
+  const DEFAUT = { mode: 'ar', sensSimple: 'aller', aller: 'Grenoble', retour: 'Grenoble', ad: 12, aa: 37, rd: 41, ra: 78, payants: false, correspondances: true };
+  const CLE_STOCKAGE = 'weekendrail:reglages:v3';
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const MOIS_COURT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const FLECHE = '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>';
@@ -64,6 +65,8 @@
     const borne = (v) => Number.isInteger(v) && v >= DEBUT && v <= FIN;
     if (borne(lu.ad) && borne(lu.aa) && lu.ad < lu.aa) { r.ad = lu.ad; r.aa = lu.aa; }
     if (borne(lu.rd) && borne(lu.ra) && lu.rd < lu.ra) { r.rd = lu.rd; r.ra = lu.ra; }
+    if (typeof lu.payants === 'boolean') r.payants = lu.payants;
+    if (typeof lu.correspondances === 'boolean') r.correspondances = lu.correspondances;
     return r;
   }
 
@@ -182,7 +185,7 @@
     return {
       type: 'direct', cle: cleTrain(t), date: t.date, depart: t.depart, ville: t.ville, sens: t.sens, zero: t.zero, tgv: t,
       h: (debut - base) / 60, fin: debut + dureeMinutes(t),
-      detail: `${autre !== t.ville ? reste : 'direct'} · ${aller ? 'arr.' : 'arr. Paris'} ${heure(t.arrivee)}`,
+      detail: `<b>Direct</b>${autre !== t.ville ? ` · ${esc(reste)}` : ''} · ${aller ? 'arr.' : 'arr. Paris'} ${heure(t.arrivee)}`,
       lien: lienSncf(aller ? 'Paris' : nomGare(t.origine), aller ? nomGare(t.destination) : 'Paris', t.date, t.depart),
     };
   }
@@ -212,7 +215,7 @@
         if (fin - tgvDebut > TOTAL_MAX) continue;
         c = {
           debut: tgvDebut, fin, depart: t.depart,
-          detail: `via ${NOM_VIA[noeud]} · arr. ${heure(ter[1])}`,
+          detail: `<b>Via ${NOM_VIA[noeud]}</b> + TER · arr. ${heure(ter[1])}`,
           lien: lienSncf('Paris', ville, date, t.depart),
         };
       } else {
@@ -227,7 +230,7 @@
         if (tgvFin - debut > TOTAL_MAX) continue;
         c = {
           debut, fin: tgvFin, depart: ter[0],
-          detail: `via ${NOM_VIA[noeud]} · arr. Paris ${heure(t.arrivee)}`,
+          detail: `<b>Via ${NOM_VIA[noeud]}</b> en TER · arr. Paris ${heure(t.arrivee)}`,
           lien: lienSncf(ville, 'Paris', date, ter[0]),
         };
       }
@@ -245,7 +248,7 @@
 
   /* Tous les trajets d'une ville dans un sens, du vendredi midi au lundi midi. */
   function trajets(sens, ville) {
-    const cle = `${etat.vendredi}|${sens}|${ville}`;
+    const cle = `${etat.vendredi}|${sens}|${ville}|${etat.r.correspondances}`;
     if (etat.cache.has(cle)) return etat.cache.get(cle);
     const liste = [];
     for (let i = 0; i < 4; i++) {
@@ -253,7 +256,7 @@
       for (const t of etat.donnees.trains) {
         if (t.date === date && t.sens === sens && t.ville === ville) liste.push(trajetDirect(t, etat.vendredi));
       }
-      liste.push(...correspondances(date, sens, ville, etat.vendredi));
+      if (etat.r.correspondances) liste.push(...correspondances(date, sens, ville, etat.vendredi));
     }
     liste.sort((a, b) => a.h - b.h || (a.type === 'direct' ? -1 : 1));
     const dedans = liste.filter((x) => x.h >= DEBUT && x.h < FIN);
@@ -292,26 +295,26 @@
     return { zA, zR, meilleur };
   }
 
-  /* ---------- Retour haptique (iPhone : iOS 18 et plus) ---------- */
+  /* ---------- Retour haptique (iPhone, iOS 18 et plus) ---------- */
 
-  let declencheur = null;
+  // Safari ne donne pas accès au vibreur. Cliquer un interrupteur natif (input switch) déclenche
+  // le retour haptique du système : on en crée un invisible et on le clique.
   function vibrer() {
     try {
       if (navigator.vibrate) {
         navigator.vibrate(6);
         return;
       }
-      if (!declencheur) {
-        declencheur = document.createElement('label');
-        declencheur.setAttribute('aria-hidden', 'true');
-        declencheur.style.display = 'none';
-        const interrupteur = document.createElement('input');
-        interrupteur.type = 'checkbox';
-        interrupteur.setAttribute('switch', '');
-        declencheur.appendChild(interrupteur);
-        document.body.appendChild(declencheur);
-      }
-      declencheur.click();
+      const label = document.createElement('label');
+      label.setAttribute('aria-hidden', 'true');
+      label.style.display = 'none';
+      const interrupteur = document.createElement('input');
+      interrupteur.type = 'checkbox';
+      interrupteur.setAttribute('switch', '');
+      label.appendChild(interrupteur);
+      document.head.appendChild(label);
+      label.click();
+      document.head.removeChild(label);
     } catch (e) {
       /* pas de retour haptique sur cet appareil */
     }
@@ -320,7 +323,7 @@
   /* ---------- Construction de la page (une seule fois) ---------- */
 
   function grilleVilles(nom, aria) {
-    const boutons = VILLES.map((v) => `<button type="button" role="radio" data-action="ville" data-cote="${nom}" data-ville="${esc(v)}">${esc(court(v))}<span class="point" aria-hidden="true"></span></button>`).join('');
+    const boutons = VILLES.map((v) => `<button type="button" role="radio" data-action="ville" data-cote="${nom}" data-ville="${esc(v)}"><span class="v-nom">${esc(court(v))}</span><span class="v-zero">0€</span></button>`).join('');
     return `<div class="grille-villes" role="radiogroup" aria-label="${aria}" data-cote="${nom}"><span class="pastille" aria-hidden="true"></span>${boutons}</div>`;
   }
 
@@ -336,17 +339,23 @@
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
 <button type="button" role="radio" data-action="mode" data-mode="simple">Un seul trajet</button></div>
-<div class="bloc-ville">
+<div class="groupe">
 <div class="ligne-titre"><span class="etiquette" id="titre-aller"></span>
-<button type="button" class="inverser" data-action="inverser" aria-label="Inverser le sens du trajet"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4"/></svg>inverser</button></div>
+<button type="button" class="inverser" data-action="inverser" aria-label="Inverser le sens du trajet"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4"/></svg>Inverser</button></div>
 ${grilleVilles('a', 'Ville de l’aller')}
 </div>
-<div class="pliable" id="pli-retour"><div><div class="bloc-ville">
-<span class="etiquette" id="titre-retour"></span>
+<div class="pliable" id="pli-retour"><div><div class="groupe">
+<div class="ligne-titre"><span class="etiquette" id="titre-retour"></span></div>
 ${grilleVilles('r', 'Ville du retour')}
 </div></div></div>
-<section class="quand" aria-label="Plages horaires">
-<div class="q-tete"><span class="etiquette">Quand</span><span class="q-lignes"><span id="ligne-a"></span><span id="ligne-r" class="rose"></span></span></div>
+<div class="groupe">
+<div class="ligne-titre"><span class="etiquette"><span class="mot">Horaires</span></span></div>
+<div class="reglages" id="reglages">
+<button type="button" class="r-tete" data-action="reglages" aria-expanded="false" aria-controls="pli-reglages">
+<span class="r-resume"><span id="ligne-a"></span><span id="ligne-r"></span></span>
+<span class="r-modifier">Modifier</span>${CHEVRON}
+</button>
+<div class="pliable" id="pli-reglages"><div><div class="r-corps">
 <div class="frise">
 <div class="f-jours" aria-hidden="true"><span style="left:8.33%">ven</span><span style="left:33.33%">sam</span><span style="left:66.67%">dim</span><span style="left:91.67%">lun</span></div>
 <div class="f-piste" aria-hidden="true"><div class="f-dedans">
@@ -358,18 +367,30 @@ ${grilleVilles('r', 'Ville du retour')}
 </div></div>
 ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage aller')}${curseur('rd', 'Début de la plage retour')}${curseur('ra', 'Fin de la plage retour')}
 </div>
-<span class="q-aide">glisse les poignées, heure par heure</span>
-</section>
+<p class="r-aide">Glisse les poignées. Les traits bordeaux sont les trains à 0€.</p>
+<label class="option"><span>Afficher les trains payants</span><input type="checkbox" switch data-option="payants"></label>
+<label class="option"><span>Inclure les correspondances TER</span><input type="checkbox" switch data-option="correspondances"></label>
+</div></div></div>
+</div>
+</div>
 <div id="plan"></div>
 <div id="verdict"></div>
 </header>
-<div class="corps"><span class="tache t1" aria-hidden="true"></span><span class="tache t2" aria-hidden="true"></span><span class="tache t3" aria-hidden="true"></span><span class="tache t4" aria-hidden="true"></span>
-<div class="corps-dedans" id="corps"></div></div>`;
+<div class="corps" id="corps"></div>`;
   }
 
   /* ---------- Mises à jour ---------- */
 
   const pct = (h) => `${(((h - DEBUT) / ETENDUE) * 100).toFixed(2)}%`;
+
+  /* N'écrit dans la page que si le contenu a changé : pas de scintillement. */
+  function poser(id, html) {
+    const el = document.getElementById(id);
+    if (el._html !== html) {
+      el.innerHTML = html;
+      el._html = html;
+    }
+  }
 
   function majReglages() {
     const r = etat.r;
@@ -393,12 +414,11 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
         b.setAttribute('aria-checked', String(on));
       }
     }
-    const titreA = r.mode === 'ar'
-      ? `Aller · Paris → <b>${esc(court(r.aller))}</b>`
-      : (r.sensSimple === 'aller' ? `Trajet · Paris → <b>${esc(court(r.aller))}</b>` : `Trajet · <b>${esc(court(r.aller))}</b> → Paris`);
-    document.getElementById('titre-aller').innerHTML = titreA;
-    document.getElementById('titre-retour').innerHTML = `Retour · <b class="rose">${esc(court(r.retour))}</b> → Paris`;
+    const trajet = r.mode === 'ar' || r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`;
+    document.getElementById('titre-aller').innerHTML = `<span class="mot">${r.mode === 'ar' ? 'Aller' : 'Trajet'}</span><span class="trajet">${esc(trajet)}</span>`;
+    document.getElementById('titre-retour').innerHTML = `<span class="mot">Retour</span><span class="trajet">${esc(court(r.retour))} → Paris</span>`;
     document.getElementById('pli-retour').classList.toggle('ouvert', r.mode === 'ar');
+    for (const input of tete.querySelectorAll('[data-option]')) input.checked = !!r[input.dataset.option];
     majPlages();
   }
 
@@ -417,15 +437,16 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     br.style.left = pct(r.rd);
     br.style.width = `${((r.ra - r.rd) / ETENDUE) * 100}%`;
     const ar = r.mode === 'ar';
-    document.getElementById('ligne-a').textContent = `${ar ? 'aller ' : ''}${libelleHeure(r.ad)} → ${libelleHeure(r.aa)}`;
-    document.getElementById('ligne-r').textContent = ar ? `retour ${libelleHeure(r.rd)} → ${libelleHeure(r.ra)}` : '';
+    document.getElementById('ligne-a').innerHTML = `<b>${ar ? 'Aller' : 'Trajet'}</b> ${libelleHeure(r.ad)} → ${libelleHeure(r.aa)}`;
+    document.getElementById('ligne-r').innerHTML = ar ? `<b>Retour</b> ${libelleHeure(r.rd)} → ${libelleHeure(r.ra)}` : '';
   }
 
+  /* Tout ce qui dépend des données. Pendant qu'on glisse un curseur, seule la frise bouge. */
   function majResultats() {
     const ev = evaluer();
     majDates();
     majSemaines();
-    majPointsVilles();
+    majVilles();
     majCoches();
     majPlan(ev);
     majVerdict(ev);
@@ -459,15 +480,15 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       return `<button type="button" role="tab" class="semaine ${statut}${on ? ' on' : ''}" aria-selected="${on}" aria-label="Weekend du ${jours} ${mois}, ${dit}" data-action="semaine" data-vendredi="${v}"><span class="s-mois">${mois}</span><span class="s-jours">${jours}</span><span class="s-point" aria-hidden="true"></span></button>`;
     }).join('');
     etat.vendredi = garde;
-    document.getElementById('semaines').innerHTML = html;
+    poser('semaines', html);
   }
 
-  function majPointsVilles() {
+  /* Sous chaque ville, « 0€ » en bordeaux s'il y a un train à 0€ dans la plage. */
+  function majVilles() {
     for (const c of cotes()) {
       const g = document.querySelector(`.grille-villes[data-cote="${c.cle}"]`);
       for (const b of g.querySelectorAll('button')) {
-        const v = b.dataset.ville;
-        const z = v !== c.ville && trajets(c.sens, v).some((x) => dispo(x) && dans(x, c.de, c.a));
+        const z = trajets(c.sens, b.dataset.ville).some((x) => dispo(x) && dans(x, c.de, c.a));
         b.classList.toggle('a-zero', z);
       }
     }
@@ -479,53 +500,57 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       const classes = ['coche', c.cle === 'r' ? 'cr' : 'ca', x.zero ? 'zero' : '', ok ? '' : 'hors'].filter(Boolean).join(' ');
       return `<span class="${classes}" style="left:${pct(x.h)}"></span>`;
     }).join('')).join('');
-    document.getElementById('coches').innerHTML = html;
+    poser('coches', html);
   }
 
-  function piste(y, on, anim) {
+  const TRAIN = '<g class="train"><rect x="-13" y="-6" width="26" height="12" rx="6" fill="#15171A"/><rect x="-7" y="-2.5" width="5" height="5" rx="1.5" fill="#FFFFFF"/><rect x="1" y="-2.5" width="5" height="5" rx="1.5" fill="#FFFFFF"/></g>';
+
+  function piste(y, on, sens) {
     return `<path d="M56 ${y} H302" stroke="#33373D" stroke-width="10" stroke-linecap="round"/>
-${on ? `<path d="M56 ${y} H302" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><path d="M56 ${y} H302" class="flux" stroke="#15171A" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 16" style="animation:${anim} 1.3s linear infinite"/>` : ''}`;
+${on ? `<path d="M56 ${y} H302" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><g transform="translate(0 ${y})"><g class="roule ${sens}">${TRAIN}</g></g>` : ''}`;
   }
 
   const quand = (x) => `${JOURS[Math.floor(x.h / 24)]} ${heure(x.depart)}`;
 
   function majPlan(ev) {
     const r = etat.r;
-    const a0 = ev.zA[0];
-    const r0 = ev.zR[0];
+    // Le plan montre le même couple de trains que la réponse.
+    const a0 = ev.meilleur ? ev.meilleur.a : ev.zA[0];
+    const r0 = ev.meilleur ? ev.meilleur.r : ev.zR[0];
     const texte = (x) => `<tspan fill="${x ? '#FFFFFF' : '#7A808A'}">${x ? `${quand(x)} · 0€` : 'rien dans ta plage'}</tspan>`;
     let svg;
     if (r.mode === 'ar') {
       const meme = r.aller === r.retour;
       const villes = meme
-        ? `<rect x="302" y="34" width="42" height="82" rx="21" fill="${a0 && r0 ? '#B3124F' : (a0 || r0 ? '#5A1430' : '#15171A')}" stroke="#FFFFFF" stroke-width="4"/>`
-        : `<circle cx="318" cy="56" r="15" fill="${a0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/><circle cx="318" cy="94" r="15" fill="${r0 ? '#B3124F' : '#15171A'}" stroke="#F2B8CB" stroke-width="4"/><path d="M318 71 V79" stroke="#7A808A" stroke-width="2" stroke-dasharray="2 3"/>`;
+        ? `<rect x="302" y="34" width="42" height="82" rx="21" fill="${a0 && r0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/>`
+        : `<circle cx="318" cy="56" r="15" fill="${a0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/><circle cx="318" cy="94" r="15" fill="${r0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/><path d="M318 71 V79" stroke="#7A808A" stroke-width="2" stroke-dasharray="2 3"/>`;
       const resume = `Aller vers ${r.aller} : ${a0 ? quand(a0) : 'rien'}. Retour depuis ${r.retour} : ${r0 ? quand(r0) : 'rien'}.`;
       svg = `<svg class="plan" role="img" aria-label="${esc(resume)}" viewBox="0 0 358 150" fill="none">
+${piste(56, !!a0, 'vers-droite')}${piste(94, !!r0, 'vers-gauche')}
 <rect x="14" y="34" width="42" height="82" rx="21" fill="#15171A" stroke="#FFFFFF" stroke-width="4"/>
-<text x="35" y="138" text-anchor="middle" class="p-ville">PARIS</text>
-${piste(56, !!a0, 'defile')}${piste(94, !!r0, 'defile-inverse')}
-<text x="70" y="38" class="p-mot">ALLER → ${esc(court(r.aller).toUpperCase())}</text>
-<text x="290" y="38" text-anchor="end" class="p-heure">${texte(a0)}</text>
-<text x="70" y="124" class="p-mot">RETOUR ← ${esc(court(r.retour).toUpperCase())}</text>
-<text x="290" y="124" text-anchor="end" class="p-heure">${texte(r0)}</text>
 ${villes}
+<text x="35" y="138" text-anchor="middle" class="p-ville">Paris</text>
+<text x="${meme ? 323 : 318}" y="138" text-anchor="middle" class="p-ville">${meme ? esc(court(r.aller)) : ''}</text>
+<text x="70" y="38" class="p-mot">aller${meme ? '' : ` · ${esc(court(r.aller))}`}</text>
+<text x="290" y="38" text-anchor="end" class="p-heure">${texte(a0)}</text>
+<text x="70" y="124" class="p-mot">retour${meme ? '' : ` · ${esc(court(r.retour))}`}</text>
+<text x="290" y="124" text-anchor="end" class="p-heure">${texte(r0)}</text>
 </svg>`;
     } else {
       const aller = r.sensSimple === 'aller';
-      const gauche = aller ? 'PARIS' : court(r.aller).toUpperCase();
-      const droite = aller ? court(r.aller).toUpperCase() : 'PARIS';
+      const gauche = aller ? 'Paris' : court(r.aller);
+      const droite = aller ? court(r.aller) : 'Paris';
       svg = `<svg class="plan" role="img" aria-label="${esc(`${gauche} vers ${droite} : ${a0 ? quand(a0) : 'rien'}`)}" viewBox="0 0 358 96" fill="none">
 <path d="M48 40 H310" stroke="#33373D" stroke-width="10" stroke-linecap="round"/>
-${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><path d="M48 40 H310" class="flux" stroke="#15171A" stroke-width="4" stroke-linecap="round" stroke-dasharray="0.1 16" style="animation:defile 1.3s linear infinite"/>' : ''}
+${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><g transform="translate(0 40)"><g class="roule seul">${TRAIN}</g></g>` : ''}
 <circle cx="36" cy="40" r="16" fill="#15171A" stroke="#FFFFFF" stroke-width="4"/>
 <circle cx="322" cy="40" r="16" fill="${a0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/>
-<text x="22" y="80" class="p-ville">${esc(gauche)}</text>
-<text x="338" y="80" text-anchor="end" class="p-ville">${esc(droite)}</text>
+<text x="36" y="80" text-anchor="middle" class="p-ville">${esc(gauche)}</text>
+<text x="322" y="80" text-anchor="middle" class="p-ville">${esc(droite)}</text>
 <text x="179" y="24" text-anchor="middle" class="p-heure">${texte(a0)}</text>
 </svg>`;
     }
-    document.getElementById('plan').innerHTML = svg;
+    poser('plan', svg);
     const force = ev.meilleur || (r.mode === 'simple' && a0) ? 0.55 : (a0 || r0 ? 0.3 : 0.12);
     document.querySelector('.halo').style.setProperty('--force', force);
   }
@@ -541,7 +566,6 @@ ${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
         oui = true;
         titre = ev.zA.length === 1 ? 'Oui, un train à 0€' : `Oui, ${ev.zA.length} trains à 0€`;
         sous = ev.zA.slice(0, 4).map(quand).join(' · ');
-        badge = '0€';
       } else {
         titre = 'Rien à 0€ pour l’instant';
         sous = 'dans ta plage, sur ce weekend';
@@ -552,7 +576,7 @@ ${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
       titre = 'Oui, tu peux partir';
       const lieu = r.aller === r.retour ? court(r.aller) : `${court(r.aller)}, retour de ${court(r.retour)}`;
       sous = `${quand(a)} → ${quand(re)} · ${lieu}`;
-      badge = `${sur} h`;
+      badge = `<span class="v-heures"><b>${sur} h</b><small>sur place</small></span>`;
     } else if (ev.zA.length) {
       titre = 'Aller oui, retour pas encore';
       sous = 'aucun retour à 0€ dans ta plage';
@@ -563,9 +587,10 @@ ${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
       titre = 'Pas de 0€ dans tes plages';
       sous = 'élargis une plage ou change de ville';
     }
-    document.getElementById('verdict').innerHTML = `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span></div>${badge ? `<span class="v-badge">${esc(badge)}</span>` : ''}</div>`;
+    poser('verdict', `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span></div>${badge}</div>`);
   }
 
+  /* Seul élément touchable d'un jour : la carte du train (blanche, avec « 0€ ↗ »). */
   function rangee(x, nouveaux) {
     const parti = estParti(x.date, x.depart);
     const titre = x.sens === 'aller' ? court(x.ville) : `${court(x.ville)} → Paris`;
@@ -573,16 +598,21 @@ ${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
     const ligne = x.type === 'via'
       ? '<span class="r-ligne via" aria-hidden="true"><i class="trait"></i><i class="pointilles"></i><i class="arret a1"></i><i class="arret a2"></i></span>'
       : '<span class="r-ligne" aria-hidden="true"><i class="trait"></i><i class="arret"></i></span>';
-    const contenu = `${ligne}<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)}${nouveau}</span><span class="r-detail">${esc(x.detail)}</span></span>`;
-    if (parti) return `<div class="rangee parti">${contenu}<span class="r-prix">parti</span></div>`;
+    const contenu = `${ligne}<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)}${nouveau}</span><span class="r-detail">${x.detail}</span></span>`;
+    if (parti) return `<div class="rangee ${x.type} parti">${contenu}<span class="r-prix">parti</span></div>`;
     const quoi = `${heure(x.depart)} ${x.sens === 'aller' ? `Paris vers ${x.ville}` : `${x.ville} vers Paris`}`;
-    return `<a class="rangee" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${FLECHE}</span></a>`;
+    return `<a class="rangee ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${FLECHE}</span></a>`;
   }
 
-  function puce(x) {
-    const p = pourcentage(x.tgv);
-    const niveau = p === null ? '' : p >= 50 ? 'fort' : p >= 25 ? 'moyen' : 'faible';
-    return `<span class="puce-payant${estParti(x.date, x.depart) ? ' parti' : ''}">${heure(x.depart)}${p === null ? '' : `<b class="${niveau}">${p} %</b>`}</span>`;
+  /* Les payants : une ligne de texte, rien qui ressemble à un bouton. */
+  function lignePayants(payants) {
+    const items = payants.map((x) => {
+      const p = pourcentage(x.tgv);
+      const niveau = p === null ? '' : p >= 50 ? 'fort' : p >= 25 ? 'moyen' : 'faible';
+      const parti = estParti(x.date, x.depart) ? ' class="barre"' : '';
+      return `<span${parti}>${heure(x.depart)}${p === null ? '' : ` <em class="${niveau}">${p} %</em>`}</span>`;
+    }).join('<i aria-hidden="true">·</i>');
+    return `<p class="payants"><span class="p-titre">Payants</span>${items}</p>`;
   }
 
   function blocJour(c, i, nouveaux) {
@@ -592,31 +622,27 @@ ${a0 ? '<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
     const payants = tous.filter((x) => !x.zero);
     const libres = zero.filter((x) => !estParti(x.date, x.depart));
     const cle = `${c.cle}|${date}`;
-    const ouvert = etat.ouverts.has(cle) ? etat.ouverts.get(cle) : libres.length > 0;
+    const ouvert = etat.ouverts.get(cle) === true;
     const resume = libres.length === 0
       ? '<span class="j-rien">aucun 0€</span>'
-      : `<span class="j-zero">${libres.length === 1 ? heure(libres[0].depart) : `${libres.length} trains`}<span class="badge">0€</span></span>`;
-    const avecPct = payants.some((x) => pourcentage(x.tgv) !== null);
-    const blocPayants = payants.length
-      ? `<div class="payants"><span class="p-titre">${avecPct ? 'payants · chance de passer à 0€' : 'payants'}</span><div class="p-puces">${payants.map(puce).join('')}</div></div>`
-      : '';
-    return `<div class="jour${ouvert ? ' ouvert' : ''}" data-cle="${cle}">
+      : `<span class="j-zero">${libres.length === 1 ? `${heure(libres[0].depart)} à 0€` : `${libres.length} trains à 0€`}</span>`;
+    let dedans = zero.map((x) => rangee(x, nouveaux)).join('');
+    if (!zero.length) dedans += '<p class="vide">Rien à 0€ dans ta plage.</p>';
+    if (etat.r.payants && payants.length) dedans += lignePayants(payants);
+    else if (!etat.r.payants && payants.length && !zero.length) dedans += `<p class="vide discret">${payants.length} payant${payants.length > 1 ? 's' : ''} masqué${payants.length > 1 ? 's' : ''}.</p>`;
+    return `<div class="jour${ouvert ? ' ouvert' : ''}${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
 <button type="button" class="j-tete" data-action="jour" aria-expanded="${ouvert}"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${CHEVRON}</button>
-<div class="j-corps"><div><div class="j-dedans">
-${zero.map((x) => rangee(x, nouveaux)).join('')}
-${zero.length ? '' : '<p class="vide">Rien à 0€ dans ta plage.</p>'}
-${blocPayants}
-</div></div></div>
+<div class="j-corps"><div><div class="j-dedans">${dedans}</div></div></div>
 </div>`;
   }
 
-  function section(c, titre, sous, nouveaux) {
-    let html = `<h2 class="s-titre">${titre}<span>${esc(sous)}</span></h2>`;
+  function section(c, mot, trajet, plage, nouveaux) {
+    let html = `<h2 class="s-titre"><span class="mot">${mot}</span><span class="trajet">${esc(trajet)}</span><span class="plage">${esc(plage)}</span></h2>`;
     for (let i = 0; i < 4; i++) {
       if (c.a <= i * 24 || c.de >= (i + 1) * 24) continue;
       html += blocJour(c, i, nouveaux);
     }
-    return html;
+    return `<section class="section">${html}</section>`;
   }
 
   function majCorps() {
@@ -625,14 +651,16 @@ ${blocPayants}
     const cs = cotes();
     const plage = (de, a) => `${libelleHeure(de)} → ${libelleHeure(a)}`;
     const html = r.mode === 'ar'
-      ? section(cs[0], 'Aller', `Paris → ${court(r.aller)} · ${plage(r.ad, r.aa)}`, nouveaux)
-        + section(cs[1], 'Retour', `${court(r.retour)} → Paris · ${plage(r.rd, r.ra)}`, nouveaux)
-      : section(cs[0], 'Trajet', `${r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`} · ${plage(r.ad, r.aa)}`, nouveaux);
+      ? section(cs[0], 'Aller', `Paris → ${court(r.aller)}`, plage(r.ad, r.aa), nouveaux)
+        + section(cs[1], 'Retour', `${court(r.retour)} → Paris`, plage(r.rd, r.ra), nouveaux)
+      : section(cs[0], 'Trajet', r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`, plage(r.ad, r.aa), nouveaux);
     const avecStats = etat.stats && Object.keys(etat.stats.trains || {}).length;
     const ter = etat.ter && etat.ter.genere ? ` Horaires TER du ${esc(instant(etat.ter.genere))}.` : '';
     const minimum = (etat.stats && etat.stats.minimum) || 4;
-    document.getElementById('corps').innerHTML = `${html}
-<p class="pied">${avecStats ? 'Pourcentage : la part des weekends relevés où ce train est passé à 0€ avant le départ.' : `Les pourcentages apparaîtront après ${minimum} weekends relevés.`}<br>Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`;
+    const note = r.payants
+      ? (avecStats ? 'Pourcentage : la part des weekends relevés où ce train payant est passé à 0€ avant le départ. ' : `Les pourcentages des payants apparaîtront après ${minimum} weekends relevés. `)
+      : '';
+    poser('corps', `${html}<p class="pied">${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`);
   }
 
   /* ---------- Interactions ---------- */
@@ -652,7 +680,9 @@ ${blocPayants}
     ra: (v, r) => Math.max(r.rd + 1, Math.min(v, FIN)),
   };
 
-  let enAttente = false;
+  // Pendant le glissement : frise, coches et points des villes seulement. Au lâcher : tout le reste.
+  let attenteFrise = false;
+  let attenteResultats = null;
   function surCurseur(e) {
     const input = e.target.closest('.curseur');
     if (!input) return;
@@ -665,14 +695,27 @@ ${blocPayants}
     vibrer();
     majPlages();
     sauver();
-    if (!enAttente) {
-      enAttente = true;
+    if (!attenteFrise) {
+      attenteFrise = true;
       requestAnimationFrame(() => {
-        enAttente = false;
-        etat.ouverts.clear();
-        majResultats();
+        attenteFrise = false;
+        majCoches();
       });
     }
+    clearTimeout(attenteResultats);
+    attenteResultats = setTimeout(appliquerPlages, 450);
+  }
+
+  function appliquerPlages() {
+    clearTimeout(attenteResultats);
+    etat.ouverts.clear();
+    majResultats();
+  }
+
+  function surOption(e) {
+    const input = e.target.closest('[data-option]');
+    if (!input) return;
+    changer(() => { etat.r[input.dataset.option] = input.checked; }, false);
   }
 
   function surClic(e) {
@@ -680,12 +723,13 @@ ${blocPayants}
     if (!b) return;
     const r = etat.r;
     const action = b.dataset.action;
-    if (action === 'jour') {
-      const jour = b.closest('.jour');
-      const ouvert = !jour.classList.contains('ouvert');
-      jour.classList.toggle('ouvert', ouvert);
+    if (action === 'jour' || action === 'reglages') {
+      const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
+      const ouvert = !bloc.classList.contains('ouvert');
+      bloc.classList.toggle('ouvert', ouvert);
+      if (action === 'reglages') document.getElementById('pli-reglages').classList.toggle('ouvert', ouvert);
       b.setAttribute('aria-expanded', String(ouvert));
-      etat.ouverts.set(jour.dataset.cle, ouvert);
+      if (action === 'jour') etat.ouverts.set(bloc.dataset.cle, ouvert);
       return;
     }
     if (action === 'ville') {
@@ -728,6 +772,10 @@ ${blocPayants}
     majResultats();
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);
+    app.addEventListener('change', (e) => {
+      if (e.target.closest('.curseur')) appliquerPlages();
+      else surOption(e);
+    });
   }
 
   demarrer();
