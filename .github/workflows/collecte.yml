@@ -34,6 +34,9 @@ jobs:
       - name: Relever les places MAX JEUNE
         run: python collector/collect.py
 
+      - name: Calculer les chances de passer à 0€
+        run: python collector/stats.py
+
       - name: Enregistrer la photo dans le repo
         run: |
           git config user.name "github-actions[bot]"

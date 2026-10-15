@@ -11,12 +11,14 @@ Chaque relevé devient une photo datée dans `data/snapshots/`. Avec le temps, c
 ## Les fichiers
 
 - `collector/collect.py` : le relevé des places MAX
+- `collector/stats.py` : la chance qu'un train payant passe à 0€, calculée sur les photos passées (publiée à partir de 4 départs observés)
 - `collector/ter.py` : les horaires TER utiles aux correspondances (Lyon, Valence, Chambéry vers Grenoble et Saint Marcellin), tirés du GTFS SNCF
 - `.github/workflows/collecte.yml` : la planification des relevés MAX (5 lancements par jour, un enregistrement seulement si les données ont changé)
 - `.github/workflows/horaires-ter.yml` : les horaires TER, une fois par jour
 - `data/latest.json` : la dernière photo
 - `data/snapshots/AAAA-MM-JJ.json` : l'historique, une photo par jour
 - `data/ter.json` : les TER des 35 prochains jours
+- `data/stats.json` : les pourcentages par train
 - `index.html`, `assets/` : le site (GitHub Pages)
 
 Chaque photo contient la liste des trains (`date`, `train`, `sens`, `ville`, `depart`, `arrivee`, `zero`) et les `changements` depuis la photo précédente.
