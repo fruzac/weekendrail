@@ -43,5 +43,6 @@ jobs:
             echo "Rien de nouveau"
           else
             git commit -m "Relevé du $(TZ=Europe/Paris date +'%Y-%m-%d %H:%M')"
+            git pull --rebase
             git push
           fi
