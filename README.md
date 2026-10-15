@@ -10,10 +10,14 @@ Chaque relevé devient une photo datée dans `data/snapshots/`. Avec le temps, c
 
 ## Les fichiers
 
-- `collector/collect.py` : le relevé
-- `.github/workflows/collecte.yml` : la planification (5 lancements par jour, un enregistrement seulement si les données ont changé)
+- `collector/collect.py` : le relevé des places MAX
+- `collector/ter.py` : les horaires TER utiles aux correspondances (Lyon, Valence, Chambéry vers Grenoble et Saint Marcellin), tirés du GTFS SNCF
+- `.github/workflows/collecte.yml` : la planification des relevés MAX (5 lancements par jour, un enregistrement seulement si les données ont changé)
+- `.github/workflows/horaires-ter.yml` : les horaires TER, une fois par jour
 - `data/latest.json` : la dernière photo
 - `data/snapshots/AAAA-MM-JJ.json` : l'historique, une photo par jour
+- `data/ter.json` : les TER des 35 prochains jours
+- `index.html`, `assets/` : le site (GitHub Pages)
 
 Chaque photo contient la liste des trains (`date`, `train`, `sens`, `ville`, `depart`, `arrivee`, `zero`) et les `changements` depuis la photo précédente.
 
@@ -23,4 +27,4 @@ Onglet **Actions**, puis **Collecte quotidienne**, puis **Run workflow**.
 
 ## Source
 
-Données SNCF Open Data, jeu `tgvmax`, licence ODbL.
+Données SNCF Open Data : jeu `tgvmax` et horaires théoriques GTFS, licence ODbL.
