@@ -35,10 +35,12 @@ GARES = {
     "VALENCE_TGV": (["VALENCE", "TGV"], 44.9913, 4.9786),
     "VALENCE_VILLE": (["VALENCE"], 44.9286, 4.8935),
     "CHAMBERY": (["CHAMBERY"], 45.5713, 5.9196),
-    "GRENOBLE": (["GRENOBLE"], 45.1913, 5.7146),
+    "GRENOBLE": (["GRENOBLE"], 45.1913, 5.7146),  # nom exact, voir NOMS_EXACTS
     "ST_MARCELLIN": (["MARCELLIN"], 45.1517, 5.3197),
 }
 RAYON_KM = 1.5
+# Grenoble a plusieurs arrêts de car en ville : on ne garde que la gare.
+NOMS_EXACTS = {"GRENOBLE": {"GRENOBLE", "GRENOBLE GARE ROUTIERE"}}
 
 PAIRES = [
     ("LYON", "GRENOBLE"),
@@ -71,6 +73,8 @@ def gare_de(nom: str, lat: float, lon: float) -> str | None:
     n = normaliser(nom)
     trouvees = []
     for cle, (mots, glat, glon) in GARES.items():
+        if cle in NOMS_EXACTS and n not in NOMS_EXACTS[cle]:
+            continue
         if all(m in n for m in mots) and distance_km(lat, lon, glat, glon) <= RAYON_KM:
             trouvees.append(cle)
     if "VALENCE_TGV" in trouvees:
@@ -100,7 +104,7 @@ def main() -> None:
     noms_retenus: dict[str, set] = defaultdict(set)
     for s in lire(z, "stops.txt"):
         sid = s["stop_id"]
-        if "TER" not in sid.upper():
+        if "TER-" not in sid.upper():  # « Train TER- », « Car TER- », pas « INTERCITES- »
             continue
         try:
             lat, lon = float(s["stop_lat"]), float(s["stop_lon"])
