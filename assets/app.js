@@ -147,6 +147,9 @@
   const cleTrain = (t) => [t.date, t.train, t.origine, t.destination].join('|');
   const court = (v) => COURT[v] || v;
 
+  const ABREGES = { 'Lyon Saint-Exupéry': 'Lyon Saint-Ex' };
+  const gareCourte = (brut) => { const n = nomGare(brut); return ABREGES[n] || COURT[n] || n; };
+
   function nomGare(brut) {
     if (GARES[brut]) return GARES[brut];
     return String(brut).toLowerCase().replace(/(^|[\s(])\S/g, (c) => c.toUpperCase());
@@ -185,7 +188,7 @@
     return {
       type: 'direct', cle: cleTrain(t), date: t.date, depart: t.depart, ville: t.ville, sens: t.sens, zero: t.zero, tgv: t,
       h: (debut - base) / 60, fin: debut + dureeMinutes(t),
-      precision: autre !== t.ville ? reste : 'direct', arrivee: heure(t.arrivee), duree: dureeMinutes(t),
+      precision: 'direct', gareDe: gareCourte(t.origine), gareA: gareCourte(t.destination), arrivee: heure(t.arrivee), duree: dureeMinutes(t),
       lien: lienSncf(aller ? 'Paris' : nomGare(t.origine), aller ? nomGare(t.destination) : 'Paris', t.date, t.depart),
     };
   }
@@ -240,7 +243,7 @@
         resultats.set(cle, {
           type: 'via', cle: `${cleTrain(t)}|${c.depart}`, date, depart: c.depart, ville, sens, zero: true, tgv: t,
           h: (c.debut - base) / 60, fin: c.fin, debut: c.debut, lien: c.lien,
-          precision: `via ${NOM_VIA[noeud]}`, arrivee: c.arrivee, duree: c.fin - c.debut, etapes: c.etapes,
+          precision: `via ${NOM_VIA[noeud]}`, gareDe: sens === 'aller' ? 'Paris' : court(ville), gareA: sens === 'aller' ? court(ville) : 'Paris', arrivee: c.arrivee, duree: c.fin - c.debut, etapes: c.etapes,
         });
       }
     }
@@ -332,20 +335,13 @@
     return `<input class="curseur c-${cle}" type="range" min="${DEBUT}" max="${FIN}" step="1" data-cle="${cle}" aria-label="${aria}">`;
   }
 
-  /* Petite illustration : un TGV vu de profil. */
-  const LOGO = `<svg class="logo" viewBox="0 0 84 34" aria-hidden="true">
-<path d="M4 25 H58 C72 25 80 20 80 15 C80 11 74 8 64 8 H12 C7 8 4 11 4 15 Z" fill="#FFFFFF"/>
-<path d="M4 20 H62 C70 20 76 18 79 16 L80 17 C78 21 70 25 58 25 H4 Z" fill="#F07A3A"/>
-<rect x="12" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/><rect x="22" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/>
-<rect x="32" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/><rect x="42" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/>
-<path d="M58 11.5 H66 C70 11.5 73 13 74 15 H58 Z" fill="#0B4F5C"/>
-<path d="M2 30 H82" stroke="#B5D3D8" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 5"/>
-</svg>`;
+  /* Logo : un billet à 0€. */
+  const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#FFFFFF"/><path d="M36 9 V31" stroke="#0B4F5C" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="800" font-size="14" fill="#F07A3A">0€</text><circle cx="44" cy="20" r="3" fill="#0B4F5C"/></svg>`;
 
   function construire() {
     document.getElementById('app').innerHTML = `<header class="tete" id="tete">
 <span class="halo" aria-hidden="true"></span>
-<div class="titre"><div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
+<div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
 <div id="semaines" class="semaines" role="tablist" aria-label="Prochains weekends"></div>
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
@@ -593,7 +589,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   /* Seul élément touchable d'un jour : la carte du train, avec « 0€ ↗ ». */
   function rangee(x, nouveaux) {
     const parti = estParti(x.date, x.depart);
-    const titre = x.sens === 'aller' ? court(x.ville) : `${court(x.ville)} → Paris`;
+    const titre = `${x.gareDe} → ${x.gareA}`;
     const detail = `${x.sens === 'aller' ? 'arr.' : 'arr. Paris'} ${x.arrivee} · ${enDuree(x.duree)}`;
     const contenu = `<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)} <span class="r-via">${esc(x.precision)}</span></span>${x.type === 'via' ? etapes(x) : ''}<span class="r-detail">${detail}</span></span>`;
     if (parti) return `<div class="rangee ${x.type} parti">${contenu}<span class="r-prix">parti</span></div>`;
@@ -623,10 +619,13 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const resume = libres.length === 0
       ? '<span class="j-rien">aucun 0€</span>'
       : `<span class="j-zero">${libres.length === 1 ? `${heure(libres[0].depart)} à 0€` : `${libres.length} trains à 0€`}</span>`;
+    const avecPayants = etat.r.payants && payants.length > 0;
+    if (!zero.length && !avecPayants) {
+      return `<div class="jour fixe"><div class="j-tete"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span></div></div>`;
+    }
     let dedans = zero.map((x) => rangee(x, nouveaux)).join('');
     if (!zero.length) dedans += '<p class="vide">Rien à 0€ dans ta plage.</p>';
-    if (etat.r.payants && payants.length) dedans += lignePayants(payants);
-    else if (!etat.r.payants && payants.length && !zero.length) dedans += `<p class="vide discret">${payants.length} payant${payants.length > 1 ? 's' : ''} masqué${payants.length > 1 ? 's' : ''}.</p>`;
+    if (avecPayants) dedans += lignePayants(payants);
     return `<div class="jour${ouvert ? ' ouvert' : ''}${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
 <button type="button" class="j-tete" data-action="jour" aria-expanded="${ouvert}"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${CHEVRON}</button>
 <div class="j-corps"><div class="j-dedans">${dedans}</div></div>
