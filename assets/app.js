@@ -185,7 +185,7 @@
     return {
       type: 'direct', cle: cleTrain(t), date: t.date, depart: t.depart, ville: t.ville, sens: t.sens, zero: t.zero, tgv: t,
       h: (debut - base) / 60, fin: debut + dureeMinutes(t),
-      detail: `<b>Direct</b>${autre !== t.ville ? ` · ${esc(reste)}` : ''} · ${aller ? 'arr.' : 'arr. Paris'} ${heure(t.arrivee)}`,
+      precision: autre !== t.ville ? reste : 'direct', arrivee: heure(t.arrivee), duree: dureeMinutes(t),
       lien: lienSncf(aller ? 'Paris' : nomGare(t.origine), aller ? nomGare(t.destination) : 'Paris', t.date, t.depart),
     };
   }
@@ -214,8 +214,8 @@
         const fin = absolu(date, ter[1]);
         if (fin - tgvDebut > TOTAL_MAX) continue;
         c = {
-          debut: tgvDebut, fin, depart: t.depart,
-          detail: `<b>Via ${NOM_VIA[noeud]}</b> + TER · arr. ${heure(ter[1])}`,
+          debut: tgvDebut, fin, depart: t.depart, arrivee: heure(ter[1]),
+          etapes: [{ mode: 'TGV', min: dureeMinutes(t), zero: true }, { mode: 'TER', min: absolu(date, ter[1]) - absolu(date, ter[0]) }],
           lien: lienSncf('Paris', ville, date, t.depart),
         };
       } else {
@@ -229,8 +229,8 @@
         const debut = absolu(date, ter[0]);
         if (tgvFin - debut > TOTAL_MAX) continue;
         c = {
-          debut, fin: tgvFin, depart: ter[0],
-          detail: `<b>Via ${NOM_VIA[noeud]}</b> en TER · arr. Paris ${heure(t.arrivee)}`,
+          debut, fin: tgvFin, depart: ter[0], arrivee: heure(t.arrivee),
+          etapes: [{ mode: 'TER', min: absolu(date, ter[1]) - absolu(date, ter[0]) }, { mode: 'TGV', min: dureeMinutes(t), zero: true }],
           lien: lienSncf(ville, 'Paris', date, ter[0]),
         };
       }
@@ -239,7 +239,8 @@
       if (!avant || c.fin - c.debut < avant.fin - avant.debut) {
         resultats.set(cle, {
           type: 'via', cle: `${cleTrain(t)}|${c.depart}`, date, depart: c.depart, ville, sens, zero: true, tgv: t,
-          h: (c.debut - base) / 60, fin: c.fin, debut: c.debut, detail: c.detail, lien: c.lien,
+          h: (c.debut - base) / 60, fin: c.fin, debut: c.debut, lien: c.lien,
+          precision: `via ${NOM_VIA[noeud]}`, arrivee: c.arrivee, duree: c.fin - c.debut, etapes: c.etapes,
         });
       }
     }
@@ -331,10 +332,20 @@
     return `<input class="curseur c-${cle}" type="range" min="${DEBUT}" max="${FIN}" step="1" data-cle="${cle}" aria-label="${aria}">`;
   }
 
+  /* Petite illustration : un TGV vu de profil. */
+  const LOGO = `<svg class="logo" viewBox="0 0 84 34" aria-hidden="true">
+<path d="M4 25 H58 C72 25 80 20 80 15 C80 11 74 8 64 8 H12 C7 8 4 11 4 15 Z" fill="#FFFFFF"/>
+<path d="M4 20 H62 C70 20 76 18 79 16 L80 17 C78 21 70 25 58 25 H4 Z" fill="#F07A3A"/>
+<rect x="12" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/><rect x="22" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/>
+<rect x="32" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/><rect x="42" y="11.5" width="7" height="5" rx="1.5" fill="#0B4F5C"/>
+<path d="M58 11.5 H66 C70 11.5 73 13 74 15 H58 Z" fill="#0B4F5C"/>
+<path d="M2 30 H82" stroke="#B5D3D8" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 5"/>
+</svg>`;
+
   function construire() {
     document.getElementById('app').innerHTML = `<header class="tete" id="tete">
 <span class="halo" aria-hidden="true"></span>
-<div class="titre"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div>
+<div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
 <div id="semaines" class="semaines" role="tablist" aria-label="Prochains weekends"></div>
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
@@ -369,15 +380,14 @@ ${grilleVilles('r', 'Ville du retour')}
 </div></div>
 ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage aller')}${curseur('rd', 'Début de la plage retour')}${curseur('ra', 'Fin de la plage retour')}
 </div>
-<p class="r-aide">Glisse les poignées. Les traits bordeaux sont les trains à 0€.</p>
+<p class="r-aide">Glisse les poignées. Les grands traits orange sont les trains à 0€.</p>
 <label class="option"><span>Afficher les trains payants</span><input type="checkbox" switch data-option="payants"></label>
 <label class="option"><span>Inclure les correspondances TER</span><input type="checkbox" switch data-option="correspondances"></label>
 </div></div>
 </div>
 </div>
-<div id="plan"></div>
-<div id="verdict"></div>
 </header>
+<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div id="plan"></div></section>
 <div class="corps" id="corps"></div>`;
   }
 
@@ -531,7 +541,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       html = voie('Trajet', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris');
     }
     poser('plan', html);
-    const force = ev.meilleur || (r.mode === 'simple' && a0) ? 0.55 : (a0 || r0 ? 0.3 : 0.12);
+    const force = ev.meilleur || (r.mode === 'simple' && a0) ? 0.5 : (a0 || r0 ? 0.28 : 0.1);
     document.querySelector('.halo').style.setProperty('--force', force);
   }
 
@@ -570,17 +580,25 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     poser('verdict', `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span></div>${badge}</div>`);
   }
 
-  /* Seul élément touchable d'un jour : la carte du train (blanche, avec « 0€ ↗ »). */
+  const enDuree = (min) => `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
+
+  /* La barre TGV / TER d'une correspondance, longueurs proportionnelles aux durées. */
+  function etapes(x) {
+    const cols = x.etapes.map((e) => `${Math.max(e.min, 15)}fr`).join(' ');
+    const traits = x.etapes.map((e) => `<span class="e-trait ${e.mode.toLowerCase()}"></span>`).join('');
+    const mots = x.etapes.map((e, i) => `<span class="e-mot${i ? ' droite' : ''}">${e.mode}${e.zero ? ' 0€' : ''}</span>`).join('');
+    return `<span class="etapes" style="grid-template-columns:${cols}" aria-hidden="true">${traits}${mots}</span>`;
+  }
+
+  /* Seul élément touchable d'un jour : la carte du train, avec « 0€ ↗ ». */
   function rangee(x, nouveaux) {
     const parti = estParti(x.date, x.depart);
     const titre = x.sens === 'aller' ? court(x.ville) : `${court(x.ville)} → Paris`;
     const nouveau = nouveaux.has(cleTrain(x.tgv)) ? '<span class="nouveau">nouveau</span>' : '';
-    const ligne = x.type === 'via'
-      ? '<span class="r-ligne via" aria-hidden="true"><i class="trait"></i><i class="pointilles"></i><i class="arret a1"></i><i class="arret a2"></i></span>'
-      : '<span class="r-ligne" aria-hidden="true"><i class="trait"></i><i class="arret"></i></span>';
-    const contenu = `${ligne}<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)}${nouveau}</span><span class="r-detail">${x.detail}</span></span>`;
+    const detail = `${x.sens === 'aller' ? 'arr.' : 'arr. Paris'} ${x.arrivee} · ${enDuree(x.duree)}`;
+    const contenu = `<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)} <span class="r-via">${esc(x.precision)}</span>${nouveau}</span>${x.type === 'via' ? etapes(x) : ''}<span class="r-detail">${detail}</span></span>`;
     if (parti) return `<div class="rangee ${x.type} parti">${contenu}<span class="r-prix">parti</span></div>`;
-    const quoi = `${heure(x.depart)} ${x.sens === 'aller' ? `Paris vers ${x.ville}` : `${x.ville} vers Paris`}`;
+    const quoi = `${heure(x.depart)} ${x.sens === 'aller' ? `Paris vers ${x.ville}` : `${x.ville} vers Paris`} ${x.precision}`;
     return `<a class="rangee ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${FLECHE}</span></a>`;
   }
 
@@ -678,6 +696,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   };
 
   // Pendant le glissement : frise, coches et points des villes seulement. Au lâcher : tout le reste.
+  let aBouge = false;
   let attenteFrise = false;
   let attenteResultats = null;
   function surCurseur(e) {
@@ -689,7 +708,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (Number(input.value) !== v) input.value = v;
     if (v === r[cle]) return;
     r[cle] = v;
-    vibrer();
+    aBouge = true;
     majPlages();
     sauver();
     if (!attenteFrise) {
@@ -720,6 +739,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (!b) return;
     const r = etat.r;
     const action = b.dataset.action;
+    vibrer();
     if (action === 'jour' || action === 'reglages') {
       const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
       const ouvert = !bloc.classList.contains('ouvert');
@@ -770,6 +790,12 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     pret = true;
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);
+    const lacher = () => {
+      if (aBouge) vibrer();
+      aBouge = false;
+    };
+    app.addEventListener('touchend', lacher);
+    app.addEventListener('mouseup', lacher);
     app.addEventListener('change', (e) => {
       if (e.target.closest('.curseur')) appliquerPlages();
       else surOption(e);
