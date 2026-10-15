@@ -339,15 +339,17 @@
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
 <button type="button" role="radio" data-action="mode" data-mode="simple">Un seul trajet</button></div>
+<div class="villes">
 <div class="groupe">
 <div class="ligne-titre"><span class="etiquette" id="titre-aller"></span>
 <button type="button" class="inverser" data-action="inverser" aria-label="Inverser le sens du trajet"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M16 3l4 4-4 4M20 17H4M8 13l-4 4 4 4"/></svg>Inverser</button></div>
 ${grilleVilles('a', 'Ville de l’aller')}
 </div>
-<div class="pliable" id="pli-retour"><div><div class="groupe">
+<div class="pliable" id="pli-retour"><div class="groupe espace">
 <div class="ligne-titre"><span class="etiquette" id="titre-retour"></span></div>
 ${grilleVilles('r', 'Ville du retour')}
-</div></div></div>
+</div></div>
+</div>
 <div class="groupe">
 <div class="ligne-titre"><span class="etiquette"><span class="mot">Horaires</span></span></div>
 <div class="reglages" id="reglages">
@@ -355,7 +357,7 @@ ${grilleVilles('r', 'Ville du retour')}
 <span class="r-resume"><span id="ligne-a"></span><span id="ligne-r"></span></span>
 <span class="r-modifier">Modifier</span>${CHEVRON}
 </button>
-<div class="pliable" id="pli-reglages"><div><div class="r-corps">
+<div class="pliable" id="pli-reglages"><div class="r-corps">
 <div class="frise">
 <div class="f-jours" aria-hidden="true"><span style="left:8.33%">ven</span><span style="left:33.33%">sam</span><span style="left:66.67%">dim</span><span style="left:91.67%">lun</span></div>
 <div class="f-piste" aria-hidden="true"><div class="f-dedans">
@@ -370,7 +372,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 <p class="r-aide">Glisse les poignées. Les traits bordeaux sont les trains à 0€.</p>
 <label class="option"><span>Afficher les trains payants</span><input type="checkbox" switch data-option="payants"></label>
 <label class="option"><span>Inclure les correspondances TER</span><input type="checkbox" switch data-option="correspondances"></label>
-</div></div></div>
+</div></div>
 </div>
 </div>
 <div id="plan"></div>
@@ -417,7 +419,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const trajet = r.mode === 'ar' || r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`;
     document.getElementById('titre-aller').innerHTML = `<span class="mot">${r.mode === 'ar' ? 'Aller' : 'Trajet'}</span><span class="trajet">${esc(trajet)}</span>`;
     document.getElementById('titre-retour').innerHTML = `<span class="mot">Retour</span><span class="trajet">${esc(court(r.retour))} → Paris</span>`;
-    document.getElementById('pli-retour').classList.toggle('ouvert', r.mode === 'ar');
+    plier(document.getElementById('pli-retour'), r.mode === 'ar');
     for (const input of tete.querySelectorAll('[data-option]')) input.checked = !!r[input.dataset.option];
     majPlages();
   }
@@ -503,54 +505,32 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     poser('coches', html);
   }
 
-  const TRAIN = '<g class="train"><rect x="-13" y="-6" width="26" height="12" rx="6" fill="#15171A"/><rect x="-7" y="-2.5" width="5" height="5" rx="1.5" fill="#FFFFFF"/><rect x="1" y="-2.5" width="5" height="5" rx="1.5" fill="#FFFFFF"/></g>';
-
-  function piste(y, on, sens) {
-    return `<path d="M56 ${y} H302" stroke="#33373D" stroke-width="10" stroke-linecap="round"/>
-${on ? `<path d="M56 ${y} H302" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><g transform="translate(0 ${y})"><g class="roule ${sens}">${TRAIN}</g></g>` : ''}`;
-  }
-
   const quand = (x) => `${JOURS[Math.floor(x.h / 24)]} ${heure(x.depart)}`;
+
+  /* Un trajet du plan : gare de départ et heure, la voie, gare d'arrivée et heure. */
+  function voie(mot, x, de, a) {
+    const arrivee = x ? enHeure(x.fin) : '';
+    return `<div class="p-trajet${x ? ' on' : ''}">
+<div class="p-tete"><span class="p-mot">${mot}</span><span class="p-jour">${x ? `${JOURS[Math.floor(x.h / 24)]} · 0€` : 'rien dans ta plage'}</span></div>
+<div class="p-gare"><span class="p-nom">${esc(de)}</span><span class="p-heure">${x ? heure(x.depart) : ''}</span></div>
+<div class="p-ligne" aria-hidden="true"><i></i></div>
+<div class="p-gare droite"><span class="p-nom">${esc(a)}</span><span class="p-heure">${arrivee}</span></div>
+</div>`;
+  }
 
   function majPlan(ev) {
     const r = etat.r;
     // Le plan montre le même couple de trains que la réponse.
     const a0 = ev.meilleur ? ev.meilleur.a : ev.zA[0];
     const r0 = ev.meilleur ? ev.meilleur.r : ev.zR[0];
-    const texte = (x) => `<tspan fill="${x ? '#FFFFFF' : '#7A808A'}">${x ? `${quand(x)} · 0€` : 'rien dans ta plage'}</tspan>`;
-    let svg;
+    let html;
     if (r.mode === 'ar') {
-      const meme = r.aller === r.retour;
-      const villes = meme
-        ? `<rect x="302" y="34" width="42" height="82" rx="21" fill="${a0 && r0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/>`
-        : `<circle cx="318" cy="56" r="15" fill="${a0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/><circle cx="318" cy="94" r="15" fill="${r0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/><path d="M318 71 V79" stroke="#7A808A" stroke-width="2" stroke-dasharray="2 3"/>`;
-      const resume = `Aller vers ${r.aller} : ${a0 ? quand(a0) : 'rien'}. Retour depuis ${r.retour} : ${r0 ? quand(r0) : 'rien'}.`;
-      svg = `<svg class="plan" role="img" aria-label="${esc(resume)}" viewBox="0 0 358 150" fill="none">
-${piste(56, !!a0, 'vers-droite')}${piste(94, !!r0, 'vers-gauche')}
-<rect x="14" y="34" width="42" height="82" rx="21" fill="#15171A" stroke="#FFFFFF" stroke-width="4"/>
-${villes}
-<text x="35" y="138" text-anchor="middle" class="p-ville">Paris</text>
-<text x="${meme ? 323 : 318}" y="138" text-anchor="middle" class="p-ville">${meme ? esc(court(r.aller)) : ''}</text>
-<text x="70" y="38" class="p-mot">aller${meme ? '' : ` · ${esc(court(r.aller))}`}</text>
-<text x="290" y="38" text-anchor="end" class="p-heure">${texte(a0)}</text>
-<text x="70" y="124" class="p-mot">retour${meme ? '' : ` · ${esc(court(r.retour))}`}</text>
-<text x="290" y="124" text-anchor="end" class="p-heure">${texte(r0)}</text>
-</svg>`;
+      html = voie('Aller', a0, 'Paris', court(r.aller)) + voie('Retour', r0, court(r.retour), 'Paris');
     } else {
       const aller = r.sensSimple === 'aller';
-      const gauche = aller ? 'Paris' : court(r.aller);
-      const droite = aller ? court(r.aller) : 'Paris';
-      svg = `<svg class="plan" role="img" aria-label="${esc(`${gauche} vers ${droite} : ${a0 ? quand(a0) : 'rien'}`)}" viewBox="0 0 358 96" fill="none">
-<path d="M48 40 H310" stroke="#33373D" stroke-width="10" stroke-linecap="round"/>
-${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/><g transform="translate(0 40)"><g class="roule seul">${TRAIN}</g></g>` : ''}
-<circle cx="36" cy="40" r="16" fill="#15171A" stroke="#FFFFFF" stroke-width="4"/>
-<circle cx="322" cy="40" r="16" fill="${a0 ? '#B3124F' : '#15171A'}" stroke="#FFFFFF" stroke-width="4"/>
-<text x="36" y="80" text-anchor="middle" class="p-ville">${esc(gauche)}</text>
-<text x="322" y="80" text-anchor="middle" class="p-ville">${esc(droite)}</text>
-<text x="179" y="24" text-anchor="middle" class="p-heure">${texte(a0)}</text>
-</svg>`;
+      html = voie('Trajet', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris');
     }
-    poser('plan', svg);
+    poser('plan', html);
     const force = ev.meilleur || (r.mode === 'simple' && a0) ? 0.55 : (a0 || r0 ? 0.3 : 0.12);
     document.querySelector('.halo').style.setProperty('--force', force);
   }
@@ -632,7 +612,7 @@ ${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
     else if (!etat.r.payants && payants.length && !zero.length) dedans += `<p class="vide discret">${payants.length} payant${payants.length > 1 ? 's' : ''} masqué${payants.length > 1 ? 's' : ''}.</p>`;
     return `<div class="jour${ouvert ? ' ouvert' : ''}${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
 <button type="button" class="j-tete" data-action="jour" aria-expanded="${ouvert}"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${CHEVRON}</button>
-<div class="j-corps"><div><div class="j-dedans">${dedans}</div></div></div>
+<div class="j-corps"><div class="j-dedans">${dedans}</div></div>
 </div>`;
   }
 
@@ -661,6 +641,23 @@ ${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
       ? (avecStats ? 'Pourcentage : la part des weekends relevés où ce train payant est passé à 0€ avant le départ. ' : `Les pourcentages des payants apparaîtront après ${minimum} weekends relevés. `)
       : '';
     poser('corps', `${html}<p class="pied">${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`);
+  }
+
+  /* ---------- Plier et déplier en douceur ---------- */
+
+  let pret = false; // pas d'animation au premier affichage
+  const calme = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function plier(el, ouvrir) {
+    const avant = el.getBoundingClientRect().height;
+    el.classList.toggle('ouvert', ouvrir);
+    if (el._anim) el._anim.cancel();
+    const apres = ouvrir ? el.scrollHeight : 0;
+    if (calme || !pret || avant === apres || !el.animate) return;
+    el._anim = el.animate(
+      [{ height: `${avant}px`, opacity: ouvrir ? 0.4 : 1 }, { height: `${apres}px`, opacity: ouvrir ? 1 : 0 }],
+      { duration: 300, easing: 'cubic-bezier(.25, .8, .25, 1)' },
+    );
+    el._anim.onfinish = () => { el._anim = null; };
   }
 
   /* ---------- Interactions ---------- */
@@ -727,7 +724,7 @@ ${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
       const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
       const ouvert = !bloc.classList.contains('ouvert');
       bloc.classList.toggle('ouvert', ouvert);
-      if (action === 'reglages') document.getElementById('pli-reglages').classList.toggle('ouvert', ouvert);
+      plier(action === 'jour' ? bloc.querySelector('.j-corps') : document.getElementById('pli-reglages'), ouvert);
       b.setAttribute('aria-expanded', String(ouvert));
       if (action === 'jour') etat.ouverts.set(bloc.dataset.cle, ouvert);
       return;
@@ -770,6 +767,7 @@ ${a0 ? `<path d="M48 40 H310" stroke="#FFFFFF" stroke-width="10" stroke-linecap=
     construire();
     majReglages();
     majResultats();
+    pret = true;
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);
     app.addEventListener('change', (e) => {

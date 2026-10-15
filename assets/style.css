@@ -114,12 +114,11 @@ a { color: inherit; }
 .inverser.tourne svg { transform: rotate(180deg); }
 .tete.simple .inverser { display: inline-flex; }
 
-/* Bloc qui se plie en douceur */
-.pliable { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .45s var(--doux), opacity .3s ease; }
-.pliable > div { overflow: hidden; min-height: 0; }
-.pliable.ouvert { grid-template-rows: 1fr; opacity: 1; }
-#pli-retour { margin-top: -16px; transition: grid-template-rows .45s var(--doux), opacity .3s ease, margin-top .45s var(--doux); }
-#pli-retour.ouvert { margin-top: 0; }
+/* Blocs qui se plient : la hauteur est animée en JavaScript (plus fluide sur Safari). */
+.pliable, .j-corps { height: 0; overflow: hidden; }
+.pliable.ouvert, .jour.ouvert .j-corps { height: auto; }
+.villes { display: flex; flex-direction: column; }
+.groupe.espace { padding-top: 16px; }
 
 /* Horaires, repliés par défaut */
 .reglages { border-radius: 20px; background: var(--verre-nuit); border: 1px solid var(--bord-nuit); }
@@ -181,14 +180,24 @@ a { color: inherit; }
 .curseur:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px rgba(255, 255, 255, .7); }
 
 /* Plan et réponse (informations, pas des boutons) */
-.plan { display: block; width: 100%; height: auto; }
-.p-ville { font-family: var(--police); font-weight: 700; font-size: 12px; fill: var(--blanc); }
-.p-mot { font-family: var(--police); font-weight: 600; font-size: 10px; fill: var(--discret-nuit); letter-spacing: 1.2px; text-transform: uppercase; }
-.p-heure { font-family: var(--police); font-weight: 700; font-size: 13px; }
-.roule { transform: translateX(179px); }
-.roule.vers-droite { animation: rouler-d 3.6s ease-in-out infinite; }
-.roule.vers-gauche { animation: rouler-g 3.6s ease-in-out infinite; }
-.roule.seul { animation: rouler-s 3.6s ease-in-out infinite; }
+#plan { display: flex; flex-direction: column; gap: 14px; }
+.p-trajet { display: grid; grid-template-columns: minmax(0, auto) minmax(40px, 1fr) minmax(0, auto); align-items: end; column-gap: 12px; row-gap: 4px; }
+.p-tete { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.p-mot { font-size: 11px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; color: var(--discret-nuit); }
+.p-jour { font-size: 12px; color: var(--eteint); white-space: nowrap; }
+.p-trajet.on .p-jour { color: var(--bordeaux-clair); font-weight: 700; }
+.p-gare { display: flex; flex-direction: column; min-width: 0; }
+.p-gare.droite { align-items: flex-end; text-align: right; }
+.p-nom { font-size: 12px; color: var(--discret-nuit); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 120px; }
+.p-heure { font-size: 20px; font-weight: 800; letter-spacing: -0.4px; min-height: 24px; line-height: 24px; }
+.p-ligne { position: relative; height: 24px; }
+.p-ligne::before, .p-ligne::after { content: ''; position: absolute; top: 50%; width: 12px; height: 12px; margin-top: -6px; border-radius: 50%; border: 3px solid var(--voie); background: var(--nuit); z-index: 1; }
+.p-ligne::before { left: 0; }
+.p-ligne::after { right: 0; }
+.p-ligne i { position: absolute; left: 6px; right: 6px; top: 50%; height: 4px; margin-top: -2px; border-radius: 2px; background: var(--voie); transform-origin: left center; }
+.p-trajet.on .p-ligne::before { border-color: var(--blanc); }
+.p-trajet.on .p-ligne::after { border-color: var(--blanc); background: var(--bordeaux); }
+.p-trajet.on .p-ligne i { background: var(--blanc); animation: tracer .7s var(--doux) both; }
 .verdict { display: flex; align-items: center; gap: 12px; padding: 14px 16px 14px 18px; border-radius: 20px; background: rgba(255, 255, 255, 0.06); }
 .verdict.non { background: transparent; border: 1px dashed rgba(255, 255, 255, 0.2); }
 .v-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; }
@@ -209,21 +218,15 @@ a { color: inherit; }
 
 .jour {
   border-radius: 22px;
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid rgba(255, 255, 255, 0.8);
-  -webkit-backdrop-filter: blur(18px) saturate(1.4);
-  backdrop-filter: blur(18px) saturate(1.4);
+  background: rgba(255, 255, 255, 0.66);
+  border: 1px solid rgba(255, 255, 255, 0.9);
 }
 .j-tete { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 18px; border: 0; background: transparent; text-align: left; color: var(--nuit); }
 .j-nom { font-size: 17px; font-weight: 700; }
 .j-resume { margin-left: auto; font-size: 14px; }
 .j-rien { color: var(--discret); font-size: 13px; }
 .j-zero { color: var(--bordeaux); font-weight: 700; }
-.j-corps { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .4s var(--doux); }
-.j-corps > div { overflow: hidden; min-height: 0; }
-.jour.ouvert .j-corps { grid-template-rows: 1fr; }
-.j-dedans { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 10px; opacity: 0; transition: opacity .3s ease; }
-.jour.ouvert .j-dedans { opacity: 1; }
+.j-dedans { display: flex; flex-direction: column; gap: 6px; padding: 0 8px 10px; }
 
 /* La carte d'un train : la seule chose à toucher dans un jour */
 .rangee {
@@ -266,9 +269,7 @@ a.rangee:active { transform: scale(0.98); }
 .pied { margin: 0; font-size: 11px; line-height: 1.5; text-align: center; color: var(--discret); }
 .chargement, .erreur { padding: 24px 16px; font-size: 14px; color: var(--discret); }
 
-@keyframes rouler-d { 0% { transform: translateX(80px); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateX(278px); opacity: 0; } }
-@keyframes rouler-g { 0% { transform: translateX(278px) scaleX(-1); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateX(80px) scaleX(-1); opacity: 0; } }
-@keyframes rouler-s { 0% { transform: translateX(68px); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; } 100% { transform: translateX(290px); opacity: 0; } }
+@keyframes tracer { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes respire { 0%, 100% { opacity: .55; } 50% { opacity: .9; } }
 
 @media (prefers-reduced-motion: reduce) {
