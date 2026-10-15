@@ -586,15 +586,17 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     return `<span class="etapes" style="grid-template-columns:${cols}" aria-hidden="true">${traits}${mots}</span>`;
   }
 
-  /* Seul élément touchable d'un jour : la carte du train, avec « 0€ ↗ ». */
-  function rangee(x, nouveaux) {
+  /* La carte d'un train : un billet. Départ, durée et arrivée empilés à gauche, talon « 0€ » à droite. */
+  function rangee(x) {
     const parti = estParti(x.date, x.depart);
-    const titre = `${x.gareDe} → ${x.gareA}`;
-    const detail = `${x.sens === 'aller' ? 'arr.' : 'arr. Paris'} ${x.arrivee} · ${enDuree(x.duree)}`;
-    const contenu = `<span class="r-heure">${heure(x.depart)}</span><span class="r-infos"><span class="r-titre">${esc(titre)} <span class="r-via">${esc(x.precision)}</span></span>${x.type === 'via' ? etapes(x) : ''}<span class="r-detail">${detail}</span></span>`;
-    if (parti) return `<div class="rangee ${x.type} parti">${contenu}<span class="r-prix">parti</span></div>`;
-    const quoi = `${heure(x.depart)} ${x.sens === 'aller' ? `Paris vers ${x.ville}` : `${x.ville} vers Paris`} ${x.precision}`;
-    return `<a class="rangee ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${contenu}<span class="r-prix">0€${FLECHE}</span></a>`;
+    const milieu = `${enDuree(x.duree)} · ${esc(x.precision)}`;
+    const corps = `<span class="b-rail${x.type === 'via' ? ' via' : ''}" aria-hidden="true"><i class="b-pt"></i><i class="b-trait"></i><i class="b-pt b-fin"></i></span>
+<span class="b-corps"><span class="b-ligne"><b class="b-h">${heure(x.depart)}</b><span class="b-gare">${esc(x.gareDe)}</span></span>
+<span class="b-milieu">${milieu}</span>${x.type === 'via' ? etapes(x) : ''}
+<span class="b-ligne"><b class="b-h">${x.arrivee}</b><span class="b-gare">${esc(x.gareA)}</span></span></span>`;
+    if (parti) return `<div class="billet ${x.type} parti">${corps}<span class="b-talon">parti</span></div>`;
+    const quoi = `${heure(x.depart)} ${x.gareDe} vers ${x.gareA}, arrivée ${x.arrivee}, ${x.precision}`;
+    return `<a class="billet ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${corps}<span class="b-talon">0€<small>ouvrir${FLECHE}</small></span></a>`;
   }
 
   /* Les payants : une ligne de texte, rien qui ressemble à un bouton. */
@@ -623,7 +625,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (!zero.length && !avecPayants) {
       return `<div class="jour fixe"><div class="j-tete"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span></div></div>`;
     }
-    let dedans = zero.map((x) => rangee(x, nouveaux)).join('');
+    let dedans = zero.map((x) => rangee(x)).join('');
     if (!zero.length) dedans += '<p class="vide">Rien à 0€ dans ta plage.</p>';
     if (avecPayants) dedans += lignePayants(payants);
     return `<div class="jour${ouvert ? ' ouvert' : ''}${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
