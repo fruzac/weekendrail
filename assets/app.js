@@ -155,14 +155,14 @@
     return String(brut).toLowerCase().replace(/(^|[\s(])\S/g, (c) => c.toUpperCase());
   }
 
+  /* Les weekends à montrer : au moins les six prochains, même si la SNCF ne les a pas encore publiés. */
   function weekends() {
-    const dates = etat.donnees.trains.map((t) => t.date).sort();
     const liste = [];
-    if (!dates.length) return liste;
-    const fin = dates[dates.length - 1];
-    for (let v = vendrediDe(dates[0]); v <= fin; v = ajouterJours(v, 7)) liste.push(v);
+    const fin = etat.fin || aujourdhui();
+    for (let v = vendrediDe(aujourdhui()); liste.length < 6 || v <= fin; v = ajouterJours(v, 7)) liste.push(v);
     return liste;
   }
+  const publie = (v) => !!etat.fin && v <= etat.fin;
 
   function lienSncf(origine, destination, iso, hhmm) {
     const d = versDate(iso);
@@ -341,7 +341,7 @@
   function construire() {
     document.getElementById('app').innerHTML = `<header class="tete" id="tete">
 <span class="halo" aria-hidden="true"></span>
-<div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div></div>
+<div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div><button type="button" class="bouton-antic" data-action="ouvrir-antic" aria-label="Mes anticipations"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 13.5v3l2 1"/></svg><span id="compte-antic"></span></button></div>
 <div id="semaines" class="semaines" role="tablist" aria-label="Prochains weekends"></div>
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
 <button type="button" role="radio" data-action="mode" data-mode="ar">Aller et retour</button>
@@ -384,7 +384,11 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 </div>
 </header>
 <section class="resultat" aria-label="Réponse"><div id="verdict"></div><div id="plan"></div></section>
-<div class="corps" id="corps"></div>`;
+<div class="corps" id="corps"></div>
+<section class="page-antic" id="page-antic" aria-label="Mes anticipations" hidden>
+<header class="pa-tete"><button type="button" class="pa-retour" data-action="fermer-antic" aria-label="Revenir aux trains"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><h2>Mes anticipations</h2></header>
+<div class="pa-corps" id="pa-corps"></div>
+</section>`;
   }
 
   /* ---------- Mises à jour ---------- */
@@ -472,19 +476,20 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 
   function majSemaines() {
     const garde = etat.vendredi;
-    const liste = weekends().filter((v) => ajouterJours(v, 3) >= aujourdhui()).slice(0, 6);
+    const liste = weekends().slice(0, 6);
     const html = liste.map((v) => {
       etat.vendredi = v;
       const ev = evaluer();
-      const statut = etat.r.mode === 'ar'
+      let statut = etat.r.mode === 'ar'
         ? (ev.meilleur ? 'oui' : (ev.zA.length || ev.zR.length ? 'partiel' : 'rien'))
         : (ev.zA.length ? 'oui' : 'rien');
+      if (!publie(v)) statut = 'futur';
       const sam = ajouterJours(v, 1);
       const dim = ajouterJours(v, 2);
       const jours = `${jourDuMois(sam)}-${jourDuMois(dim)}`;
       const mois = moisDe(sam) === moisDe(dim) ? MOIS_COURT[moisDe(sam)] : `${MOIS_COURT[moisDe(sam)]} ${MOIS_COURT[moisDe(dim)]}`;
       const on = v === garde;
-      const dit = { oui: 'weekend possible', partiel: 'un seul sens à 0€', rien: 'rien à 0€' }[statut];
+      const dit = { oui: 'weekend possible', partiel: 'un seul sens à 0€', rien: 'rien à 0€', futur: 'pas encore publié' }[statut];
       return `<button type="button" role="tab" class="semaine ${statut}${on ? ' on' : ''}" aria-selected="${on}" aria-label="Weekend du ${jours} ${mois}, ${dit}" data-action="semaine" data-vendredi="${v}"><span class="s-mois">${mois}</span><span class="s-jours">${jours}</span><span class="s-point" aria-hidden="true"></span></button>`;
     }).join('');
     etat.vendredi = garde;
@@ -517,7 +522,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   function voie(mot, x, de, a) {
     const arrivee = x ? enHeure(x.fin) : '';
     return `<div class="p-trajet${x ? ' on' : ''}">
-<div class="p-tete"><span class="p-mot">${mot}</span><span class="p-jour">${x ? `${JOURS[Math.floor(x.h / 24)]} · 0€` : 'rien dans ta plage'}</span></div>
+<div class="p-tete"><span class="p-mot">${mot}</span><span class="p-jour">${x ? `${JOURS[Math.floor(x.h / 24)]} · 0€` : (publie(etat.vendredi) ? 'rien dans ta plage' : 'pas encore publié')}</span></div>
 <div class="p-gare"><span class="p-nom">${esc(de)}</span><span class="p-heure">${x ? heure(x.depart) : ''}</span></div>
 <div class="p-ligne" aria-hidden="true"><span class="p-rail"></span>${x ? '<span class="p-objet"><i></i><i></i><i></i></span>' : ''}<span class="p-st de"></span><span class="p-st a"></span></div>
 <div class="p-gare droite"><span class="p-nom">${esc(a)}</span><span class="p-heure">${arrivee}</span></div>
@@ -573,7 +578,14 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       titre = 'Pas de 0€ dans tes plages';
       sous = 'élargis une plage ou change de ville';
     }
-    poser('verdict', `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span></div>${badge}</div>`);
+    if (!publie(etat.vendredi)) {
+      oui = false;
+      badge = '';
+      titre = 'Pas encore publié';
+      sous = `la SNCF ouvre les places MAX 30 jours avant : à partir du ${jourDuMois(ajouterJours(etat.vendredi, -30))} ${MOIS_COURT[moisDe(ajouterJours(etat.vendredi, -30))]}`;
+    }
+    const raccourci = oui ? '' : '<button type="button" class="v-antic" data-action="antic-depuis-recherche">Noter une anticipation</button>';
+    poser('verdict', `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span>${raccourci}</div>${badge}</div>`);
   }
 
   const enDuree = (min) => `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
@@ -618,7 +630,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const libres = zero.filter((x) => !estParti(x.date, x.depart));
     const cle = `${c.cle}|${date}`;
     const ouvert = etat.ouverts.get(cle) === true;
-    const resume = libres.length === 0
+    const resume = date > (etat.fin || '') ? '<span class="j-rien">pas encore publié</span>' : libres.length === 0
       ? '<span class="j-rien">aucun 0€</span>'
       : `<span class="j-zero">${libres.length === 1 ? `${heure(libres[0].depart)} à 0€` : `${libres.length} trains à 0€`}</span>`;
     const avecPayants = etat.r.payants && payants.length > 0;
@@ -677,6 +689,205 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       { duration: 300, easing: 'cubic-bezier(.25, .8, .25, 1)' },
     );
     el._anim.onfinish = () => { el._anim = null; };
+  }
+
+  /* ---------- Mes anticipations (gardées sur le téléphone seulement) ----------
+     Une anticipation SNCF Connect : un trajet, un jour, une plage horaire. Si un billet MAX se libère
+     dans la plage, SNCF Connect le réserve tout seul. Ici on note chaque demande et son issue. */
+
+  const CLE_ANTIC = 'weekendrail:anticipations:v1';
+  const GARES_ANTIC = ['Paris', ...VILLES];
+  const antic = { liste: chargerAntic(), formulaire: null, valider: null };
+
+  function chargerAntic() {
+    try {
+      const l = JSON.parse(localStorage.getItem(CLE_ANTIC) || '[]');
+      return Array.isArray(l) ? l.filter((a) => a && a.id && a.date) : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  function sauverAntic() {
+    try {
+      localStorage.setItem(CLE_ANTIC, JSON.stringify(antic.liste));
+    } catch (e) {
+      /* stockage indisponible */
+    }
+  }
+
+  const dateLongue = (iso) => `${['dim', 'lun', 'mar', 'mer', 'jeu', 'ven', 'sam'][versDate(iso).getUTCDay()]} ${jourDuMois(iso)} ${MOIS_COURT[moisDe(iso)]}`;
+  const hhmm = (v) => (v ? heure(v) : '');
+
+  function etatAntic(a) {
+    if (a.issue === 'obtenue') return 'obtenue';
+    if (a.issue === 'ratee') return 'ratee';
+    return a.date < aujourdhui() ? 'a-confirmer' : 'attente';
+  }
+
+  function carteAntic(a) {
+    const e = etatAntic(a);
+    const statut = {
+      attente: '<span class="pa-statut attente">en attente</span>',
+      'a-confirmer': '<span class="pa-statut confirmer">à confirmer</span>',
+      obtenue: '<span class="pa-statut obtenue">obtenue · 0€</span>',
+      ratee: '<span class="pa-statut ratee">pas obtenue</span>',
+    }[e];
+    const detail = e === 'obtenue'
+      ? `train de ${hhmm(a.train)}${a.obtenueLe ? ` · obtenu le ${dateLongue(a.obtenueLe)}` : ''}`
+      : `demandée le ${dateLongue(a.creeLe)}`;
+    const actions = (e === 'attente' || e === 'a-confirmer')
+      ? (antic.valider === a.id
+        ? `<form class="pa-valider" data-id="${a.id}"><label>Heure du train <input type="time" name="train" required value="${a.de}"></label><button type="submit" class="pa-bouton plein">Valider</button><button type="button" class="pa-bouton" data-action="antic-annuler-valider">Annuler</button></form>`
+        : `<div class="pa-actions"><button type="button" class="pa-bouton plein" data-action="antic-obtenue" data-id="${a.id}">Obtenue</button><button type="button" class="pa-bouton" data-action="antic-ratee" data-id="${a.id}">Pas obtenue</button><button type="button" class="pa-lien" data-action="antic-suppr" data-id="${a.id}">Supprimer</button></div>`)
+      : `<div class="pa-actions"><button type="button" class="pa-lien" data-action="antic-rouvrir" data-id="${a.id}">Modifier l’issue</button><button type="button" class="pa-lien" data-action="antic-suppr" data-id="${a.id}">Supprimer</button></div>`;
+    return `<article class="pa-carte ${e}">
+<div class="pa-ligne"><span class="pa-trajet">${esc(court(a.depuis))} → ${esc(court(a.vers))}</span>${statut}</div>
+<div class="pa-quand">${dateLongue(a.date)} · ${hhmm(a.de)} → ${hhmm(a.a)}</div>
+<div class="pa-detail">${detail}</div>
+${actions}
+</article>`;
+  }
+
+  function options(liste, choisi) {
+    return liste.map((g) => `<option value="${esc(g)}"${g === choisi ? ' selected' : ''}>${esc(court(g))}</option>`).join('');
+  }
+
+  function formulaireAntic(f) {
+    return `<form class="pa-form" id="pa-form">
+<div class="pa-champs">
+<label>De<select name="depuis">${options(GARES_ANTIC, f.depuis)}</select></label>
+<label>Vers<select name="vers">${options(GARES_ANTIC, f.vers)}</select></label>
+<label class="large">Jour du train<input type="date" name="date" required value="${f.date}"></label>
+<label>Départ après<input type="time" name="de" required value="${f.de}"></label>
+<label>et avant<input type="time" name="a" required value="${f.a}"></label>
+</div>
+<div class="pa-actions"><button type="submit" class="pa-bouton plein">Enregistrer</button><button type="button" class="pa-bouton" data-action="antic-fermer-form">Annuler</button></div>
+</form>`;
+  }
+
+  function majAntic() {
+    const l = antic.liste;
+    const finies = l.filter((a) => a.issue);
+    const obtenues = l.filter((a) => a.issue === 'obtenue');
+    const enCours = l.filter((a) => !a.issue).sort((x, y) => (x.date + x.de).localeCompare(y.date + y.de));
+    const passees = finies.sort((x, y) => y.date.localeCompare(x.date));
+    const taux = finies.length ? Math.round((100 * obtenues.length) / finies.length) : null;
+    const bilan = `<div class="pa-bilan"><div><b>${obtenues.length}</b><span>obtenue${obtenues.length > 1 ? 's' : ''}</span></div><div><b>${finies.length - obtenues.length}</b><span>pas obtenue${finies.length - obtenues.length > 1 ? 's' : ''}</span></div><div><b>${taux === null ? '·' : `${taux} %`}</b><span>de réussite</span></div></div>`;
+    const nouvelle = antic.formulaire
+      ? formulaireAntic(antic.formulaire)
+      : '<button type="button" class="pa-nouvelle" data-action="antic-nouvelle">+ Nouvelle anticipation</button>';
+    const aide = l.length ? '' : '<p class="pa-aide">Quand SNCF Connect ne trouve rien à 0€, il propose une anticipation : il réserve tout seul si un billet MAX se libère sur ta plage. Note ici chaque demande, puis son issue, pour garder l’historique.</p>';
+    document.getElementById('pa-corps').innerHTML = `${bilan}${nouvelle}${aide}
+${enCours.length ? `<h3 class="pa-titre">En cours</h3>${enCours.map(carteAntic).join('')}` : ''}
+${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic).join('')}` : ''}
+<div class="pa-sauvegarde"><p>Tes anticipations restent sur ce téléphone. Pour ne pas les perdre :</p><div class="pa-actions"><button type="button" class="pa-bouton" data-action="antic-exporter">Exporter</button><label class="pa-bouton">Importer<input type="file" accept="application/json" id="pa-import" hidden></label></div></div>`;
+    const enAttente = l.filter((a) => !a.issue).length;
+    document.getElementById('compte-antic').textContent = enAttente ? String(enAttente) : '';
+  }
+
+  function ouvrirAntic(prerempli) {
+    if (prerempli) antic.formulaire = prerempli;
+    majAntic();
+    const page = document.getElementById('page-antic');
+    if (location.hash !== '#anticipations') history.pushState(null, '', '#anticipations');
+    if (!page.hidden && page.classList.contains('ouverte')) return;
+    page.hidden = false;
+    page.scrollTop = 0;
+    requestAnimationFrame(() => requestAnimationFrame(() => page.classList.add('ouverte')));
+    document.body.classList.add('page-ouverte');
+  }
+  /* Le retour du téléphone (geste ou bouton) ferme aussi la page. */
+  function fermerAntic() {
+    if (location.hash === '#anticipations') history.back();
+    else cacherAntic();
+  }
+  function cacherAntic() {
+    const page = document.getElementById('page-antic');
+    page.classList.remove('ouverte');
+    document.body.classList.remove('page-ouverte');
+    setTimeout(() => { page.hidden = true; }, 320);
+  }
+
+  /* Préremplit le formulaire avec la recherche en cours (premier jour de la plage aller). */
+  function depuisRecherche() {
+    const r = etat.r;
+    const aller = r.mode === 'ar' || r.sensSimple === 'aller';
+    const jour = Math.min(3, Math.floor(r.ad / 24));
+    const deb = Math.max(r.ad, jour * 24) - jour * 24;
+    const fin = Math.min(r.aa, (jour + 1) * 24) - jour * 24;
+    const h = (x) => `${String(Math.min(x, 23)).padStart(2, '0')}:${x >= 24 ? '59' : '00'}`;
+    return {
+      depuis: aller ? 'Paris' : r.aller,
+      vers: aller ? r.aller : 'Paris',
+      date: ajouterJours(etat.vendredi, jour),
+      de: h(deb),
+      a: h(fin),
+    };
+  }
+
+  function surActionAntic(action, b) {
+    const trouver = (id) => antic.liste.find((a) => a.id === id);
+    if (action === 'ouvrir-antic') ouvrirAntic();
+    else if (action === 'fermer-antic') fermerAntic();
+    else if (action === 'antic-depuis-recherche') ouvrirAntic(depuisRecherche());
+    else if (action === 'antic-nouvelle') { antic.formulaire = depuisRecherche(); majAntic(); }
+    else if (action === 'antic-fermer-form') { antic.formulaire = null; majAntic(); }
+    else if (action === 'antic-obtenue') { antic.valider = b.dataset.id; majAntic(); }
+    else if (action === 'antic-annuler-valider') { antic.valider = null; majAntic(); }
+    else if (action === 'antic-ratee') { trouver(b.dataset.id).issue = 'ratee'; sauverAntic(); majAntic(); }
+    else if (action === 'antic-rouvrir') { const a = trouver(b.dataset.id); delete a.issue; delete a.train; delete a.obtenueLe; sauverAntic(); majAntic(); }
+    else if (action === 'antic-suppr') { antic.liste = antic.liste.filter((a) => a.id !== b.dataset.id); sauverAntic(); majAntic(); }
+    else if (action === 'antic-exporter') {
+      const blob = new Blob([JSON.stringify(antic.liste, null, 2)], { type: 'application/json' });
+      const lien = document.createElement('a');
+      lien.href = URL.createObjectURL(blob);
+      lien.download = `anticipations-${aujourdhui()}.json`;
+      lien.click();
+      setTimeout(() => URL.revokeObjectURL(lien.href), 1000);
+    } else return false;
+    return true;
+  }
+
+  function surEnvoiAntic(e) {
+    const form = e.target;
+    if (form.id === 'pa-form') {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(form));
+      if (d.depuis === d.vers || d.a <= d.de) {
+        form.querySelector(d.depuis === d.vers ? '[name=vers]' : '[name=a]').setCustomValidity(d.depuis === d.vers ? 'Choisis deux gares différentes' : 'L’heure de fin doit être après le début');
+        form.reportValidity();
+        form.querySelectorAll('select, input').forEach((x) => x.setCustomValidity(''));
+        return;
+      }
+      antic.liste.push({ id: `a${Date.now().toString(36)}`, depuis: d.depuis, vers: d.vers, date: d.date, de: d.de, a: d.a, creeLe: aujourdhui() });
+      antic.formulaire = null;
+      sauverAntic();
+      majAntic();
+      vibrer();
+    } else if (form.classList.contains('pa-valider')) {
+      e.preventDefault();
+      const a = antic.liste.find((x) => x.id === form.dataset.id);
+      a.issue = 'obtenue';
+      a.train = new FormData(form).get('train');
+      a.obtenueLe = aujourdhui();
+      antic.valider = null;
+      sauverAntic();
+      majAntic();
+      vibrer();
+    }
+  }
+
+  function surImportAntic(e) {
+    const fichier = e.target.files && e.target.files[0];
+    if (!fichier) return;
+    fichier.text().then((texte) => {
+      const l = JSON.parse(texte);
+      if (!Array.isArray(l)) return;
+      const ids = new Set(antic.liste.map((a) => a.id));
+      for (const a of l) if (a && a.id && a.date && !ids.has(a.id)) antic.liste.push(a);
+      sauverAntic();
+      majAntic();
+    }).catch(() => {});
   }
 
   /* ---------- Interactions ---------- */
@@ -741,6 +952,10 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const r = etat.r;
     const action = b.dataset.action;
     vibrer();
+    if (action.startsWith('antic') || action.endsWith('-antic')) {
+      surActionAntic(action, b);
+      return;
+    }
     if (action === 'jour' || action === 'reglages') {
       const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
       const ouvert = !bloc.classList.contains('ouvert');
@@ -787,6 +1002,8 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     etat.stats = stats.status === 'fulfilled' ? stats.value : null;
     const liste = weekends();
     const v = vendrediDe(aujourdhui());
+    const dates = etat.donnees.trains.map((t) => t.date).sort();
+    etat.fin = dates[dates.length - 1];
     etat.vendredi = liste.includes(v) ? v : liste[0];
     construire();
     majReglages();
@@ -802,8 +1019,16 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     app.addEventListener('mouseup', lacher);
     app.addEventListener('change', (e) => {
       if (e.target.closest('.curseur')) appliquerPlages();
-      else surOption(e);
+      else if (e.target.id === 'pa-import') surImportAntic(e);
+      else if (e.target.closest('[data-option]')) surOption(e);
     });
+    app.addEventListener('submit', surEnvoiAntic);
+    window.addEventListener('popstate', () => {
+      if (location.hash === '#anticipations') ouvrirAntic();
+      else cacherAntic();
+    });
+    majAntic();
+    if (location.hash === '#anticipations') ouvrirAntic();
   }
 
   demarrer();
