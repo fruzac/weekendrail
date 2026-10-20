@@ -199,7 +199,7 @@ a { color: inherit; }
 .dessin { min-width: 0; }
 .dessin svg { display: block; width: 100%; height: auto; overflow: visible; }
 .d-mono { font-family: var(--mono); font-size: 9.5px; letter-spacing: .8px; fill: #5A6863; }
-.d-ital { font-family: var(--titre); font-style: italic; fill: var(--vert); }
+.d-ital { font-family: var(--titre); font-style: italic; fill: var(--vert); paint-order: stroke; stroke: var(--parchemin); stroke-width: 3px; stroke-linejoin: round; }
 .d-plaque { font-family: var(--titre); font-weight: 700; fill: var(--lin); }
 .plaque, .rose { cursor: pointer; }
 @keyframes navA { 0% { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 86% { opacity: 1; } 100% { transform: translateX(232px); opacity: 0; } }
