@@ -133,6 +133,7 @@ a { color: inherit; }
 .f-piste { position: absolute; left: 0; right: 0; top: 18px; height: 78px; border-radius: 12px; background: rgba(0, 0, 0, 0.14); }
 .f-dedans { position: absolute; left: 14px; right: 14px; top: 0; bottom: 0; }
 .f-sep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(183, 155, 94, 0.35); }
+.frise.glisse .bande, .frise.glisse .poignee { transition: none; }
 .bande { position: absolute; border-radius: 8px; background: rgba(244, 241, 233, 0.12); border: 1.5px solid rgba(244, 241, 233, 0.8); transition: left .15s ease-out, width .15s ease-out, top .35s ease, height .35s ease, opacity .3s ease; }
 .b-a { top: 6px; height: 30px; }
 .b-r { top: 42px; height: 30px; }
@@ -174,6 +175,7 @@ a { color: inherit; }
 .resultat::before { content: ""; position: absolute; inset: 5px; border: 1.5px dashed var(--laiton-clair); border-radius: 17px; pointer-events: none; }
 .verdict { display: flex; align-items: center; gap: 12px; }
 .v-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 3px; }
+.v-n { display: inline-block; text-align: right; font-variant-numeric: tabular-nums lining-nums; }
 .v-titre { font-family: var(--titre); font-size: 23px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.15; color: var(--encre); }
 .verdict.non .v-titre { color: var(--vert); }
 .v-sous { font-size: 13.5px; color: var(--gris); }
@@ -183,20 +185,19 @@ a { color: inherit; }
 .horl { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: center; column-gap: 16px; padding-top: 14px; border-top: 3px double var(--laiton-clair); }
 .horloge { display: block; width: 112px; padding: 0; border: 0; background: transparent; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
 .horloge svg { display: block; width: 112px; height: auto; overflow: visible; }
-.horloge .aig { transform-origin: 58px 66px; transition: transform .6s var(--doux); }
-.horloge .aig-s { transition: transform .28s cubic-bezier(.4, 2.1, .6, 1); }
-.horloge.lance .aig, .horloge.lance .aig-s { transition: transform 1.4s var(--doux); }
-.horloge.chrono .aig, .horloge.chrono .aig-s { transition: none; }
-.horloge .poussoir { transition: transform .12s ease; }
-.horloge.appuie .poussoir { transform: translateY(3px); }
-.horloge.appuie svg { transform: scale(0.97); }
-.horloge svg { transition: transform .15s var(--ressort); }
-.h-chrono { font-family: var(--mono); font-size: 8.5px; font-weight: 600; fill: var(--cuivre-texte); opacity: 0; transition: opacity .3s ease; }
-.horloge.chrono .h-chrono, .horloge.arret .h-chrono { opacity: 1; }
+/* les aiguilles tournent vite ; elles partent de 10h10 */
+.horloge .aig, .horloge .tour, .horloge .boitier { transform-origin: 58px 66px; }
+.horloge .aig-h { animation: tour 96s linear -81.3s infinite; }
+.horloge .aig-m { animation: tour 8s linear -1.33s infinite; }
+.horloge .aig-s { animation: tour 4s steps(40) infinite; }
+@keyframes tour { to { transform: rotate(360deg); } }
+.horloge .poussoir { transition: transform .1s ease; }
+.horloge.appuie .poussoir { transform: translateY(4px); }
 .h-blocs { display: flex; flex-direction: column; min-width: 0; }
 .h-bloc { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .h-mot { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--gris-papier); }
 .h-heure { font-family: var(--titre); font-size: 23px; font-weight: 700; color: var(--encre); line-height: 1.15; }
+.h-bloc.vide .h-trajet { white-space: normal; }
 .h-bloc.vide .h-heure { font-style: italic; font-weight: 500; font-size: 18px; color: var(--gris); }
 .h-trajet { font-size: 12.5px; color: var(--gris); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .h-filet { border-top: 3px double var(--laiton-clair); margin: 9px 0; }
