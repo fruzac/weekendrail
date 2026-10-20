@@ -1010,7 +1010,7 @@ ${deux ? plaque(206, 130, 112, MAJ(r.retour)) : ''}</svg>`;
     const note = r.payants
       ? (avecStats ? 'Pourcentage : la part des weekends relevés où ce train payant est passé à 0€ avant le départ. ' : `Les pourcentages des payants apparaîtront après ${minimum} weekends relevés. `)
       : '';
-    poser('pied', `${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, relevée toutes les 30 minutes. Entre deux publications, le lien « vérifier » ouvre le jour sur SNCF Connect.${ter}`);
+    poser('pied', `${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, relevée chaque matin. Entre deux publications, le lien « vérifier » ouvre le jour sur SNCF Connect.${ter}`);
   }
 
   /* ---------- Plier et déplier en douceur ---------- */
