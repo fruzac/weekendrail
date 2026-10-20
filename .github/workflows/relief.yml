@@ -1,0 +1,26 @@
+name: Relief (calcul ponctuel)
+
+on:
+  push:
+    branches: [relief-tmp]
+    paths: [outils/relief.py, .github/workflows/relief.yml]
+
+permissions:
+  contents: write
+
+jobs:
+  relief:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install numpy pillow requests scikit-image shapely scipy
+      - run: python outils/relief.py
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add outils/courbes.json outils/grille.json
+          git commit -m "Courbes de niveau calculées"
+          git push
