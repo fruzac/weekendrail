@@ -3,11 +3,16 @@ name: Collecte
 on:
   schedule:
     # Heures UTC. La SNCF publie l'open data « tgvmax » une fois par jour, vers 6h30 (heure de Paris).
-    # Quatre relevés le matin (4h40, 5h10, 5h40, 6h10 UTC), qui couvrent la publication en heure
-    # d'été comme en heure d'hiver, puis deux de rattrapage si elle sort plus tard (10h et 16h UTC).
-    - cron: "40 4,5 * * *"
-    - cron: "10 5,6 * * *"
-    - cron: "0 10,16 * * *"
+    # Quatre relevés le matin (4h43, 5h17, 5h38, 6h13 UTC), qui couvrent la publication en heure
+    # d'été comme en heure d'hiver, puis deux de rattrapage si elle sort plus tard (10h22 et 16h47 UTC).
+    # Minutes volontairement irrégulières : on évite les heures rondes, où tout le monde interroge
+    # l'open data et où GitHub retarde le plus les tâches programmées.
+    - cron: "43 4 * * *"
+    - cron: "17 5 * * *"
+    - cron: "38 5 * * *"
+    - cron: "13 6 * * *"
+    - cron: "22 10 * * *"
+    - cron: "47 16 * * *"
   workflow_dispatch:
 
 permissions:
