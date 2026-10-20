@@ -4,7 +4,7 @@ Suivi des TGV INOUI à 0€ avec l'abonnement MAX JEUNE, pour les weekends au d�
 
 ## Ce que fait le repo
 
-Chaque matin, une tâche GitHub Actions télécharge le jeu de données SNCF « Disponibilité à 30 jours de places MAX JEUNE et MAX SENIOR » (open data, mis à jour une fois par jour en début de matinée) et garde les trajets entre Paris et Grenoble, Lyon, Valence, Chambéry et Annecy, dans les deux sens.
+Toutes les 30 minutes de 4h à 22h, une tâche GitHub Actions télécharge le jeu de données SNCF « Disponibilité à 30 jours de places MAX JEUNE et MAX SENIOR » (open data, mis à jour une fois par jour en début de matinée) et garde les trajets entre Paris et Grenoble, Lyon, Valence, Chambéry et Annecy, dans les deux sens.
 
 Chaque relevé devient une photo datée dans `data/snapshots/`. Avec le temps, ces photos permettront de savoir quand chaque train passe à 0€.
 

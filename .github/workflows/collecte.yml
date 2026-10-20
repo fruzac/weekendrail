@@ -1,14 +1,11 @@
-name: Collecte quotidienne
+name: Collecte
 
 on:
   schedule:
-    # Heures UTC. La SNCF a publié la mise à jour du 14 octobre vers 12h (heure de Paris),
-    # donc on relève le matin, puis plusieurs fois en début d'après midi et le soir.
-    - cron: "15 4 * * *"
-    - cron: "15 8 * * *"
-    - cron: "30 10 * * *"
-    - cron: "30 12 * * *"
-    - cron: "30 16 * * *"
+    # Heures UTC. La SNCF publie l'open data « tgvmax » une fois par jour, tôt le matin.
+    # On relève toutes les 30 minutes de 4h à 22h (heure de Paris) : le relevé part dès que
+    # la publication sort, et si la SNCF republie dans la journée, le site suit dans la demi-heure.
+    - cron: "*/30 2-20 * * *"
   workflow_dispatch:
 
 permissions:
