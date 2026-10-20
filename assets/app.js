@@ -338,26 +338,35 @@
   /* Logo : un billet à 0€. */
   const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#F4F1E9"/><path d="M36 9 V31" stroke="#B79B5E" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="14" fill="#C8662F">0€</text><circle cx="44" cy="20" r="3" fill="#24403B"/></svg>`;
 
-  /* Horloge de gare : cadran à chiffres romains. Les aiguilles tournent vite, pour le plaisir de l'œil. */
+  /* Horloge à potence : accrochée à un bras de fer forgé, cadran de quai à chiffres romains.
+     Les aiguilles tournent vite et sans à‑coups, pour le plaisir de l'œil. */
   const HORLOGE = (() => {
+    const cx = 96;
+    const cy = 82;
     let traits = '';
     for (let i = 0; i < 60; i++) {
       const a = (i * 6 * Math.PI) / 180;
-      const r1 = i % 5 === 0 ? 39.5 : 42;
-      const p = (r) => `${(58 + r * Math.sin(a)).toFixed(1)} ${(66 - r * Math.cos(a)).toFixed(1)}`;
-      traits += `<path d="M${p(r1)} L${p(44.5)}" stroke-width="${i % 5 === 0 ? 1.6 : 0.6}"/>`;
+      const r1 = i % 5 === 0 ? 35.5 : 38;
+      const p = (r) => `${(cx + r * Math.sin(a)).toFixed(1)} ${(cy - r * Math.cos(a)).toFixed(1)}`;
+      traits += `<path d="M${p(r1)} L${p(40.5)}" stroke-width="${i % 5 === 0 ? 1.5 : 0.55}"/>`;
     }
-    return `<svg viewBox="0 0 116 122" aria-hidden="true"><g class="boitier" id="boitier">
-<g class="poussoir"><rect x="51" y="0.5" width="14" height="6" rx="2" fill="#B79B5E" stroke="#24403B" stroke-width="1"/></g>
-<rect x="55" y="5" width="6" height="12" fill="#24403B"/>
-<circle cx="58" cy="66" r="50.5" fill="#FBF6EA" stroke="#24403B" stroke-width="3"/>
-<circle cx="58" cy="66" r="47" fill="none" stroke="#B79B5E" stroke-width=".8"/>
+    return `<svg viewBox="0 0 150 134" aria-hidden="true">
+<rect x="2" y="4" width="8" height="58" rx="2" fill="#24403B"/><circle cx="6" cy="12" r="1.5" fill="#B79B5E"/><circle cx="6" cy="54" r="1.5" fill="#B79B5E"/>
+<path d="M10 14 H100" stroke="#24403B" stroke-width="3" stroke-linecap="round"/>
+<path d="M10 48 Q38 46 60 15" stroke="#24403B" stroke-width="2" fill="none"/>
+<path d="M22 15 q-3 11 8 13 q9 0 7 -8 q-2 -5 -7 -2" stroke="#24403B" stroke-width="1.5" fill="none"/>
+<path d="M60 15 q4 9 13 8 q6 -1 4 -6" stroke="#24403B" stroke-width="1.4" fill="none"/>
+<circle cx="102" cy="14" r="3" fill="#24403B"/>
+<g class="balance" id="balance">
+<path d="M96 14 V32" stroke="#24403B" stroke-width="2.5"/><rect x="89" y="30" width="14" height="6" rx="2" fill="#B79B5E" stroke="#24403B" stroke-width="1"/>
+<circle cx="${cx}" cy="${cy}" r="46" fill="#FBF6EA" stroke="#24403B" stroke-width="3"/>
+<circle cx="${cx}" cy="${cy}" r="42.5" fill="none" stroke="#B79B5E" stroke-width=".8"/>
 <g stroke="#24403B">${traits}</g>
-<g font-family="Fraunces, Georgia, serif" font-size="10.5" font-weight="600" fill="#24403B" text-anchor="middle"><text x="58" y="36.5">XII</text><text x="87.5" y="69.8">III</text><text x="58" y="103.5">VI</text><text x="28.5" y="69.8">IX</text></g>
-<g class="tour" id="tour-h"><g class="aig aig-h"><path d="M58 70 L58 45" stroke="#24403B" stroke-width="3.2" stroke-linecap="round"/><path d="M58 40 L61 45 L58 49 L55 45Z" fill="#24403B"/></g></g>
-<g class="tour" id="tour-m"><g class="aig aig-m"><path d="M58 72 L58 28" stroke="#24403B" stroke-width="1.8" stroke-linecap="round"/></g></g>
-<g class="tour" id="tour-s"><g class="aig aig-s"><path d="M58 76 L58 25" stroke="#C8662F" stroke-width="1"/><circle cx="58" cy="31" r="2" fill="none" stroke="#C8662F" stroke-width="1"/></g></g>
-<circle cx="58" cy="66" r="3.2" fill="#C8662F" stroke="#24403B" stroke-width=".8"/>
+<g font-family="Fraunces, Georgia, serif" font-size="9.5" font-weight="600" fill="#24403B" text-anchor="middle"><text x="96" y="55.5">XII</text><text x="123" y="85.4">III</text><text x="96" y="115.5">VI</text><text x="69" y="85.4">IX</text></g>
+<g class="tour" id="tour-h"><g class="aig aig-h"><path d="M96 86 L96 63" stroke="#24403B" stroke-width="3" stroke-linecap="round"/><path d="M96 58.5 L98.8 63 L96 67 L93.2 63Z" fill="#24403B"/></g></g>
+<g class="tour" id="tour-m"><g class="aig aig-m"><path d="M96 88 L96 47" stroke="#24403B" stroke-width="1.7" stroke-linecap="round"/></g></g>
+<g class="tour" id="tour-s"><g class="aig aig-s"><path d="M96 92 L96 44" stroke="#C8662F" stroke-width="1"/><circle cx="96" cy="49.5" r="1.9" fill="none" stroke="#C8662F" stroke-width="1"/></g></g>
+<circle cx="${cx}" cy="${cy}" r="3" fill="#C8662F" stroke="#24403B" stroke-width=".8"/>
 </g></svg>`;
   })();
 
@@ -811,14 +820,10 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   }
 
   /* ---------- L'horloge de gare ----------
-     Petit secret : un appui enfonce le poussoir, l'horloge tressaute et les aiguilles s'emballent. */
+     Petit secret : un appui fait balancer l'horloge sur son crochet et les aiguilles s'emballent. */
 
   function appuyerHorloge() {
     const el = document.getElementById('horloge');
-    el.classList.remove('appuie');
-    void el.offsetWidth;
-    el.classList.add('appuie');
-    setTimeout(() => el.classList.remove('appuie'), 180);
     if (calme || !el.animate) return;
     const lancer = (id, images, duree, courbe) => {
       const n = document.getElementById(id);
@@ -826,11 +831,11 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       n._a = n.animate(images, { duration: duree, easing: courbe });
     };
     const emballe = 'cubic-bezier(.2, .7, .1, 1)';
-    // des tours entiers : à la fin, chaque aiguille retombe exactement où elle en était
+    // l'horloge se balance sur son crochet ; les aiguilles font des tours entiers et retombent où elles en étaient
+    lancer('balance', [0, 14, -10, 6, -3, 1, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 1600, 'ease-out');
     lancer('tour-h', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], 1200, emballe);
     lancer('tour-m', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(1440deg)' }], 1200, emballe);
     lancer('tour-s', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-1080deg)' }], 1200, emballe);
-    lancer('boitier', [0, -7, 6, -3.5, 1.5, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 750, 'ease-out');
   }
 
   /* ---------- Mes anticipations (gardées sur le téléphone seulement) ----------
