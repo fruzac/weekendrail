@@ -336,11 +336,33 @@
   }
 
   /* Logo : un billet à 0€. */
-  const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#FFFFFF"/><path d="M36 9 V31" stroke="#0B4F5C" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Outfit, sans-serif" font-weight="800" font-size="14" fill="#F07A3A">0€</text><circle cx="44" cy="20" r="3" fill="#0B4F5C"/></svg>`;
+  const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#F4F1E9"/><path d="M36 9 V31" stroke="#B79B5E" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="14" fill="#C8662F">0€</text><circle cx="44" cy="20" r="3" fill="#24403B"/></svg>`;
+
+  /* Horloge de gare : cadran à chiffres romains. Les aiguilles sont tournées en JavaScript. */
+  const HORLOGE = (() => {
+    let traits = '';
+    for (let i = 0; i < 60; i++) {
+      const a = (i * 6 * Math.PI) / 180;
+      const r1 = i % 5 === 0 ? 39.5 : 42;
+      const p = (r) => `${(58 + r * Math.sin(a)).toFixed(1)} ${(66 - r * Math.cos(a)).toFixed(1)}`;
+      traits += `<path d="M${p(r1)} L${p(44.5)}" stroke-width="${i % 5 === 0 ? 1.6 : 0.6}"/>`;
+    }
+    return `<svg viewBox="0 0 116 122" aria-hidden="true">
+<g class="poussoir"><rect x="52" y="0" width="12" height="6" rx="2" fill="#B79B5E" stroke="#24403B" stroke-width="1"/><rect x="55" y="5.5" width="6" height="6" fill="#24403B"/></g>
+<circle cx="58" cy="66" r="50.5" fill="#FBF6EA" stroke="#24403B" stroke-width="3"/>
+<circle cx="58" cy="66" r="47" fill="none" stroke="#B79B5E" stroke-width=".8"/>
+<g stroke="#24403B">${traits}</g>
+<g font-family="Fraunces, Georgia, serif" font-size="10.5" font-weight="600" fill="#24403B" text-anchor="middle"><text x="58" y="36.5">XII</text><text x="87.5" y="69.8">III</text><text x="58" y="103.5">VI</text><text x="28.5" y="69.8">IX</text></g>
+<text class="h-chrono" x="58" y="88" text-anchor="middle" id="h-chrono">0,0 s</text>
+<g class="aig aig-h" id="aig-h"><path d="M58 70 L58 45" stroke="#24403B" stroke-width="3.2" stroke-linecap="round"/><path d="M58 40 L61 45 L58 49 L55 45Z" fill="#24403B"/></g>
+<g class="aig aig-m" id="aig-m"><path d="M58 72 L58 28" stroke="#24403B" stroke-width="1.8" stroke-linecap="round"/></g>
+<g class="aig aig-s" id="aig-s"><path d="M58 76 L58 25" stroke="#C8662F" stroke-width="1"/><circle cx="58" cy="31" r="2" fill="none" stroke="#C8662F" stroke-width="1"/></g>
+<circle cx="58" cy="66" r="3.2" fill="#C8662F" stroke="#24403B" stroke-width=".8"/>
+</svg>`;
+  })();
 
   function construire() {
     document.getElementById('app').innerHTML = `<header class="tete" id="tete">
-<span class="halo" aria-hidden="true"></span>
 <div class="titre">${LOGO}<div class="t-textes"><h1>Ton weekend</h1><span id="dates" class="dates"></span></div><button type="button" class="bouton-antic" data-action="ouvrir-antic" aria-label="Mes anticipations"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18M12 13.5v3l2 1"/></svg><span id="compte-antic"></span></button></div>
 <div id="semaines" class="semaines" role="tablist" aria-label="Prochains weekends"></div>
 <div class="mode" role="radiogroup" aria-label="Type de recherche"><span class="pastille" aria-hidden="true"></span>
@@ -383,7 +405,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 </div>
 </div>
 </header>
-<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div id="plan"></div></section>
+<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div class="horl"><button type="button" class="horloge" id="horloge" data-action="horloge" aria-label="Horloge de gare : touche pour lancer ou arrêter le chrono">${HORLOGE}</button><div id="plan" class="h-blocs"></div></div></section>
 <div class="corps" id="corps"></div>
 <section class="page-antic" id="page-antic" aria-label="Mes anticipations" hidden>
 <header class="pa-tete"><button type="button" class="pa-retour" data-action="fermer-antic" aria-label="Revenir aux trains"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><h2>Mes anticipations</h2></header>
@@ -401,7 +423,61 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (el._html !== html) {
       el.innerHTML = html;
       el._html = html;
+      return true;
     }
+    return false;
+  }
+
+  /* Pareil, mais le nouveau contenu apparaît en fondu, en montant de quelques pixels. */
+  const DOUX = 'cubic-bezier(.2, .8, .2, 1)';
+  function poserDoux(id, html) {
+    const el = document.getElementById(id);
+    if (!poser(id, html) || !pret || calme || !el.animate) return;
+    el.animate([{ opacity: 0.15, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }], { duration: 280, easing: DOUX });
+  }
+
+  /* La carte réponse change de hauteur sans à‑coup. */
+  function animerHauteur(el, avant) {
+    if (!pret || calme || !el.animate) return;
+    const apres = el.offsetHeight;
+    if (Math.abs(apres - avant) < 3) return;
+    if (el._animH) el._animH.cancel();
+    el.style.overflow = 'hidden';
+    el._animH = el.animate([{ height: `${avant}px` }, { height: `${apres}px` }], { duration: 320, easing: DOUX });
+    el._animH.onfinish = el._animH.oncancel = () => { el.style.overflow = ''; el._animH = null; };
+  }
+
+  /* Les jours visibles arrivent en cascade ; ceux plus bas apparaissent au défilement. */
+  let observateur = null;
+  function animerCorps() {
+    const el = document.getElementById('corps');
+    const morceaux = [...el.querySelectorAll('.s-titre, .jour, .pied')];
+    const bas = window.innerHeight;
+    let i = 0;
+    for (const m of morceaux) {
+      const haut = m.getBoundingClientRect().top;
+      if (haut > bas) {
+        if (observateur) {
+          m.classList.add('revele');
+          observateur.observe(m);
+        }
+      } else if (pret && !calme && m.animate && i < 12) {
+        m.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: i * 35, easing: DOUX, fill: 'backwards' });
+        i++;
+      }
+    }
+  }
+
+  /* Le nombre d'heures du titre défile jusqu'à sa nouvelle valeur. */
+  function compter(el, de, a) {
+    if (!el || de === a || !pret || calme) return;
+    const t0 = performance.now();
+    const pas = (t) => {
+      const k = Math.min(1, (t - t0) / 450);
+      el.textContent = Math.round(de + (a - de) * (1 - (1 - k) ** 3));
+      if (k < 1) requestAnimationFrame(pas);
+    };
+    requestAnimationFrame(pas);
   }
 
   function majReglages() {
@@ -456,12 +532,15 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   /* Tout ce qui dépend des données. Pendant qu'on glisse un curseur, seule la frise bouge. */
   function majResultats() {
     const ev = evaluer();
+    const carte = document.querySelector('.resultat');
+    const avant = carte.offsetHeight;
     majDates();
     majSemaines();
     majVilles();
     majCoches();
     majPlan(ev);
     majVerdict(ev);
+    animerHauteur(carte, avant);
     majCorps();
   }
 
@@ -518,32 +597,32 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 
   const quand = (x) => `${JOURS[Math.floor(x.h / 24)]} ${heure(x.depart)}`;
 
-  /* Un trajet du plan : gare de départ et heure, la voie, gare d'arrivée et heure. */
-  function voie(mot, x, de, a) {
-    const arrivee = x ? enHeure(x.fin) : '';
-    return `<div class="p-trajet${x ? ' on' : ''}">
-<div class="p-tete"><span class="p-mot">${mot}</span><span class="p-jour">${x ? `${JOURS[Math.floor(x.h / 24)]} · 0€` : (publie(etat.vendredi) ? 'rien dans ta plage' : 'pas encore publié')}</span></div>
-<div class="p-gare"><span class="p-nom">${esc(de)}</span><span class="p-heure">${x ? heure(x.depart) : ''}</span></div>
-<div class="p-ligne" aria-hidden="true"><span class="p-rail"></span>${x ? '<span class="p-objet"><i></i><i></i><i></i></span>' : ''}<span class="p-st de"></span><span class="p-st a"></span></div>
-<div class="p-gare droite"><span class="p-nom">${esc(a)}</span><span class="p-heure">${arrivee}</span></div>
-</div>`;
+  const JOURS_SEMAINE = ['DIM', 'LUN', 'MAR', 'MER', 'JEU', 'VEN', 'SAM'];
+  /* « SAM 7 NOV », comme sur un billet. */
+  const jourBillet = (iso) => `${JOURS_SEMAINE[versDate(iso).getUTCDay()]} ${jourDuMois(iso)} ${MOIS_COURT[moisDe(iso)].replace('.', '').toUpperCase()}`;
+
+  /* Un départ écrit à côté de l'horloge : le jour, l'heure en grand, le trajet et l'arrivée. */
+  function blocDepart(mot, x, de, a) {
+    if (x) {
+      return `<div class="h-bloc"><span class="h-mot">${mot} · ${jourBillet(x.date)}</span><span class="h-heure">${heure(x.depart)}</span><span class="h-trajet">${esc(x.gareDe)} → ${esc(x.gareA)}, arr. ${x.arrivee}</span></div>`;
+    }
+    const pourquoi = publie(etat.vendredi) ? 'rien à 0€ dans ta plage' : 'pas encore publié';
+    return `<div class="h-bloc vide"><span class="h-mot">${mot}</span><span class="h-heure">pas encore</span><span class="h-trajet">${esc(de)} → ${esc(a)}, ${pourquoi}</span></div>`;
   }
 
   function majPlan(ev) {
     const r = etat.r;
-    // Le plan montre le même couple de trains que la réponse.
+    // Les départs écrits sont ceux du meilleur séjour, sinon les premiers à 0€.
     const a0 = ev.meilleur ? ev.meilleur.a : ev.zA[0];
     const r0 = ev.meilleur ? ev.meilleur.r : ev.zR[0];
     let html;
     if (r.mode === 'ar') {
-      html = voie('Aller', a0, 'Paris', court(r.aller)) + voie('Retour', r0, court(r.retour), 'Paris');
+      html = blocDepart('ALLER', a0, 'Paris', court(r.aller)) + '<span class="h-filet" aria-hidden="true"></span>' + blocDepart('RETOUR', r0, court(r.retour), 'Paris');
     } else {
       const aller = r.sensSimple === 'aller';
-      html = voie('Trajet', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris');
+      html = blocDepart('TRAJET', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris');
     }
-    poser('plan', html);
-    const force = ev.meilleur || (r.mode === 'simple' && a0) ? 0.5 : (a0 || r0 ? 0.28 : 0.1);
-    document.querySelector('.halo').style.setProperty('--force', force);
+    poserDoux('plan', html);
   }
 
   function majVerdict(ev) {
@@ -551,41 +630,47 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     let oui = false;
     let titre;
     let sous;
-    let badge = '';
+    let heures = null;
     if (r.mode === 'simple') {
       if (ev.zA.length) {
         oui = true;
-        titre = ev.zA.length === 1 ? 'Oui, un train à 0€' : `Oui, ${ev.zA.length} trains à 0€`;
+        titre = ev.zA.length === 1 ? 'Un train à 0€' : `${ev.zA.length} trains à 0€`;
         sous = ev.zA.slice(0, 4).map(quand).join(' · ');
       } else {
-        titre = 'Rien à 0€ pour l’instant';
-        sous = 'dans ta plage, sur ce weekend';
+        titre = 'Pas encore de trajets';
+        sous = 'rien à 0€ dans ta plage pour l’instant';
       }
     } else if (ev.meilleur) {
       const { a, r: re, sur } = ev.meilleur;
       oui = true;
-      titre = 'Oui, tu peux partir';
-      const lieu = r.aller === r.retour ? court(r.aller) : `${court(r.aller)}, retour de ${court(r.retour)}`;
-      sous = `${quand(a)} → ${quand(re)} · ${lieu}`;
-      badge = `<span class="v-heures"><b>${sur} h</b><small>sur place</small></span>`;
+      heures = sur;
+      const lieu = r.aller === r.retour ? `à ${esc(court(r.aller))}` : `entre ${esc(court(r.aller))} et ${esc(court(r.retour))}`;
+      titre = `<span class="v-n">${sur}</span> h ${lieu}`;
+      sous = `aller ${quand(a)} · retour ${quand(re)}`;
     } else if (ev.zA.length) {
-      titre = 'Aller oui, retour pas encore';
-      sous = 'aucun retour à 0€ dans ta plage';
+      titre = 'L’aller est là, le retour manque';
+      sous = `aller ${quand(ev.zA[0])} · pas encore de retour à 0€`;
     } else if (ev.zR.length) {
-      titre = 'Retour oui, aller pas encore';
-      sous = 'aucun aller à 0€ dans ta plage';
+      titre = 'Le retour est là, l’aller manque';
+      sous = `retour ${quand(ev.zR[0])} · pas encore d’aller à 0€`;
     } else {
-      titre = 'Pas de 0€ dans tes plages';
-      sous = 'élargis une plage ou change de ville';
+      titre = 'Pas encore de trajets';
+      sous = 'rien à 0€ dans tes plages pour l’instant';
     }
     if (!publie(etat.vendredi)) {
       oui = false;
-      badge = '';
+      heures = null;
       titre = 'Pas encore publié';
-      sous = `la SNCF ouvre les places MAX 30 jours avant : à partir du ${jourDuMois(ajouterJours(etat.vendredi, -30))} ${MOIS_COURT[moisDe(ajouterJours(etat.vendredi, -30))]}`;
+      const ouverture = ajouterJours(etat.vendredi, -30);
+      sous = `la SNCF ouvre les places MAX 30 jours avant : à partir du ${jourDuMois(ouverture)} ${MOIS_COURT[moisDe(ouverture)]}`;
     }
     const raccourci = oui ? '' : '<button type="button" class="v-antic" data-action="antic-depuis-recherche">Noter une anticipation</button>';
-    poser('verdict', `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${esc(titre)}</span><span class="v-sous">${esc(sous)}</span>${raccourci}</div>${badge}</div>`);
+    // Le titre contient déjà ce qui vient de esc() ou du texte fixe.
+    const html = `<div class="verdict ${oui ? 'oui' : 'non'}"><div class="v-texte"><span class="v-titre">${heures === null ? esc(titre) : titre}</span><span class="v-sous">${esc(sous)}</span>${raccourci}</div></div>`;
+    const avant = etat.heures;
+    poserDoux('verdict', html);
+    if (heures !== null && avant != null) compter(document.querySelector('#verdict .v-n'), avant, heures);
+    etat.heures = heures;
   }
 
   const enDuree = (min) => `${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
@@ -598,17 +683,19 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     return `<span class="etapes" style="grid-template-columns:${cols}" aria-hidden="true">${traits}${mots}</span>`;
   }
 
-  /* La carte d'un train : un billet. Départ, durée et arrivée empilés à gauche, talon « 0€ » à droite. */
+  /* La carte d'un train : un billet imprimé. En tête le sens, le jour et le N° du train, puis les horaires,
+     les gares, la durée ; le talon « 0€ » à droite ouvre SNCF Connect. */
   function rangee(x) {
     const parti = estParti(x.date, x.depart);
-    const milieu = `${enDuree(x.duree)} · ${esc(x.precision)}`;
-    const corps = `<span class="b-rail${x.type === 'via' ? ' via' : ''}" aria-hidden="true"><i class="b-pt"></i><i class="b-trait"></i><i class="b-pt b-fin"></i></span>
-<span class="b-corps"><span class="b-ligne"><b class="b-h">${heure(x.depart)}</b><span class="b-gare">${esc(x.gareDe)}</span></span>
-<span class="b-milieu">${milieu}</span>${x.type === 'via' ? etapes(x) : ''}
-<span class="b-ligne"><b class="b-h">${x.arrivee}</b><span class="b-gare">${esc(x.gareA)}</span></span></span>`;
-    if (parti) return `<div class="billet ${x.type} parti">${corps}<span class="b-talon">parti</span></div>`;
-    const quoi = `${heure(x.depart)} ${x.gareDe} vers ${x.gareA}, arrivée ${x.arrivee}, ${x.precision}`;
-    return `<a class="billet ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect">${corps}<span class="b-talon">0€<small>ouvrir${FLECHE}</small></span></a>`;
+    const sens = x.sens === 'retour' ? 'RETOUR' : 'ALLER';
+    const corps = `<span class="b-corps"><span class="b-cadre">
+<span class="b-haut"><span>${sens} · ${jourBillet(x.date)}</span><span>N° ${esc(x.tgv.train)}</span></span>
+<span class="b-h"><b>${heure(x.depart)}</b><i>→</i><b>${x.arrivee}</b></span>
+<span class="b-gares">${esc(x.gareDe)} → ${esc(x.gareA)}</span>
+<span class="b-milieu">${enDuree(x.duree)} · ${esc(x.precision)}</span>${x.type === 'via' ? etapes(x) : ''}</span></span>`;
+    if (parti) return `<div class="billet ${x.type} parti"><span class="b-papier">${corps}<span class="b-talon">PARTI</span></span></div>`;
+    const quoi = `${heure(x.depart)} ${x.gareDe} vers ${x.gareA}, arrivée ${x.arrivee}, ${x.precision}, train ${x.tgv.train}`;
+    return `<a class="billet ${x.type}" href="${esc(x.lien)}" target="_blank" rel="noopener" aria-label="${esc(quoi)}, 0€, ouvrir dans SNCF Connect"><span class="b-papier">${corps}<span class="b-talon"><b>0€</b><small>OUVRIR${FLECHE}</small></span></span></a>`;
   }
 
   /* Les payants : une ligne de texte, rien qui ressemble à un bouton. */
@@ -670,7 +757,8 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const note = r.payants
       ? (avecStats ? 'Pourcentage : la part des weekends relevés où ce train payant est passé à 0€ avant le départ. ' : `Les pourcentages des payants apparaîtront après ${minimum} weekends relevés. `)
       : '';
-    poser('corps', `${html}<p class="pied">${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`);
+    const change = poser('corps', `${html}<p class="pied">${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`);
+    if (change) animerCorps();
   }
 
   /* ---------- Plier et déplier en douceur ---------- */
@@ -689,6 +777,98 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       { duration: 300, easing: 'cubic-bezier(.25, .8, .25, 1)' },
     );
     el._anim.onfinish = () => { el._anim = null; };
+  }
+
+  /* ---------- L'horloge de gare ----------
+     Elle donne l'heure de Paris, la trotteuse avance d'un cran chaque seconde.
+     Petit secret : un appui sur l'horloge enfonce le poussoir et lance un chrono, un deuxième l'arrête,
+     un troisième remet l'heure. */
+
+  const fmtSecondesParis = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' });
+  const horloge = { mode: 'heure', angles: { h: 0, m: 0, s: 0 }, debut: 0, ecoule: 0, raf: 0, tic: 0 };
+
+  function heureParis() {
+    const p = {};
+    for (const x of fmtSecondesParis.formatToParts(new Date())) p[x.type] = Number(x.value);
+    return p;
+  }
+
+  /* Les aiguilles ne tournent que dans le sens des aiguilles d'une montre, même en passant midi. */
+  function tourner(cibles) {
+    for (const k of ['h', 'm', 's']) {
+      let a = cibles[k];
+      const avant = horloge.angles[k];
+      while (a < avant - 0.01) a += 360;
+      horloge.angles[k] = a;
+      document.getElementById(`aig-${k}`).style.transform = `rotate(${a.toFixed(2)}deg)`;
+    }
+  }
+
+  function anglesHeure() {
+    const { hour: h, minute: m, second: s } = heureParis();
+    return { h: ((h % 12) + m / 60) * 30, m: (m + s / 60) * 6, s: s * 6 };
+  }
+
+  function texteChrono(ms) {
+    const s = ms / 1000;
+    if (s < 60) return `${s.toFixed(1).replace('.', ',')} s`;
+    const min = Math.floor(s / 60);
+    return `${min} min ${String(Math.floor(s % 60)).padStart(2, '0')} s`;
+  }
+
+  function boucleChrono() {
+    horloge.ecoule = performance.now() - horloge.debut;
+    const e = horloge.ecoule;
+    const base = horloge.base;
+    tourner({ h: base.h + (e / 3600000) * 30, m: base.m + (e / 60000) * 6, s: base.s + (e / 1000) * 6 });
+    document.getElementById('h-chrono').textContent = texteChrono(e);
+    horloge.raf = requestAnimationFrame(boucleChrono);
+  }
+
+  function demarrerHorloge() {
+    const el = document.getElementById('horloge');
+    tourner({ h: 0, m: 0, s: 0 });
+    // au premier affichage les aiguilles partent de midi et rejoignent l'heure
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      el.classList.add('lance');
+      tourner(anglesHeure());
+      setTimeout(() => el.classList.remove('lance'), 1500);
+    }));
+    horloge.tic = setInterval(() => { if (horloge.mode === 'heure') tourner(anglesHeure()); }, 1000);
+  }
+
+  function appuyerHorloge() {
+    const el = document.getElementById('horloge');
+    el.classList.add('appuie');
+    setTimeout(() => el.classList.remove('appuie'), 160);
+    if (horloge.mode === 'heure') {
+      // les trois aiguilles reviennent à midi, puis le chrono part
+      horloge.mode = 'chrono';
+      el.classList.add('chrono');
+      el.classList.remove('arret');
+      const zero = (a) => Math.ceil(a / 360) * 360;
+      horloge.base = { h: zero(horloge.angles.h), m: zero(horloge.angles.m), s: zero(horloge.angles.s) };
+      el.classList.remove('chrono');
+      tourner(horloge.base);
+      document.getElementById('h-chrono').textContent = texteChrono(0);
+      setTimeout(() => {
+        if (horloge.mode !== 'chrono') return;
+        el.classList.add('chrono');
+        horloge.debut = performance.now();
+        boucleChrono();
+      }, 550);
+    } else if (horloge.mode === 'chrono') {
+      horloge.mode = 'arret';
+      cancelAnimationFrame(horloge.raf);
+      el.classList.remove('chrono');
+      el.classList.add('arret');
+    } else {
+      horloge.mode = 'heure';
+      el.classList.remove('arret', 'chrono');
+      el.classList.add('lance');
+      tourner(anglesHeure());
+      setTimeout(() => el.classList.remove('lance'), 1500);
+    }
   }
 
   /* ---------- Mes anticipations (gardées sur le téléphone seulement) ----------
@@ -956,6 +1136,10 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
       surActionAntic(action, b);
       return;
     }
+    if (action === 'horloge') {
+      appuyerHorloge();
+      return;
+    }
     if (action === 'jour' || action === 'reglages') {
       const bloc = action === 'jour' ? b.closest('.jour') : document.getElementById('reglages');
       const ouvert = !bloc.classList.contains('ouvert');
@@ -1006,8 +1190,18 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     etat.fin = dates[dates.length - 1];
     etat.vendredi = liste.includes(v) ? v : liste[0];
     construire();
+    if ('IntersectionObserver' in window && !calme) {
+      observateur = new IntersectionObserver((entrees) => {
+        for (const e of entrees) {
+          if (!e.isIntersecting) continue;
+          e.target.classList.add('vu');
+          observateur.unobserve(e.target);
+        }
+      }, { rootMargin: '0px 0px -8% 0px' });
+    }
     majReglages();
     majResultats();
+    demarrerHorloge();
     pret = true;
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);
