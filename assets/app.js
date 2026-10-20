@@ -39,8 +39,9 @@
   const TOTAL_MAX = 240;
 
   // Par défaut : aller du vendredi midi au samedi 13h, retour du samedi 17h au lundi 6h (le 5h45 de Grenoble).
-  const DEFAUT = { mode: 'ar', sensSimple: 'aller', aller: 'Grenoble', retour: 'Grenoble', ad: 12, aa: 37, rd: 41, ra: 78, payants: false, correspondances: true };
+  const DEFAUT = { mode: 'ar', sensSimple: 'aller', aller: 'Grenoble', retour: 'Grenoble', ad: 12, aa: 37, rd: 41, ra: 78, payants: false, correspondances: true, rendu: 'horloge' };
   const CLE_STOCKAGE = 'weekendrail:reglages:v3';
+  const RENDUS = ['horloge', 'plaques', 'carte'];
   const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   const MOIS_COURT = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   const FLECHE = '<svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M7 17 17 7M8 7h9v9"/></svg>';
@@ -67,6 +68,7 @@
     if (borne(lu.rd) && borne(lu.ra) && lu.rd < lu.ra) { r.rd = lu.rd; r.ra = lu.ra; }
     if (typeof lu.payants === 'boolean') r.payants = lu.payants;
     if (typeof lu.correspondances === 'boolean') r.correspondances = lu.correspondances;
+    if (RENDUS.includes(lu.rendu)) r.rendu = lu.rendu;
     return r;
   }
 
@@ -336,7 +338,9 @@
   }
 
   /* Logo : un billet à 0€. */
-  const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#F4F1E9"/><path d="M36 9 V31" stroke="#B79B5E" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="14" fill="#C8662F">0€</text><circle cx="44" cy="20" r="3" fill="#24403B"/></svg>`;
+  const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true" data-action="logo"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#F4F1E9"/><path d="M36 9 V31" stroke="#B79B5E" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="14" fill="#C8662F">0€</text><circle cx="44" cy="20" r="3" fill="#24403B"/></svg>`;
+
+  const ICONE_RENDU = '<svg aria-hidden="true" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12a8 8 0 0 1 13.7-5.6M20 12a8 8 0 0 1-13.7 5.6"/><path d="M18 3v4h-4M6 21v-4h4"/></svg>';
 
   /* Horloge à potence : accrochée à un bras de fer forgé, cadran de quai à chiffres romains.
      Les aiguilles tournent vite et sans à‑coups, pour le plaisir de l'œil. */
@@ -414,7 +418,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 </div>
 </div>
 </header>
-<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div class="horl"><button type="button" class="horloge" id="horloge" data-action="horloge" aria-label="Horloge de gare">${HORLOGE}</button><div id="plan" class="h-blocs"></div></div></section>
+<section class="resultat" aria-label="Réponse"><button type="button" class="rendu" id="rendu" data-action="rendu" aria-label="Changer l’illustration">${ICONE_RENDU}</button><div id="verdict"></div><div class="illu" id="illu"><div class="dessin" id="dessin"></div><div id="plan" class="h-blocs"></div></div></section>
 <div class="corps" id="corps"></div>
 <section class="page-antic" id="page-antic" aria-label="Mes anticipations" hidden>
 <header class="pa-tete"><button type="button" class="pa-retour" data-action="fermer-antic" aria-label="Revenir aux trains"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><h2>Mes anticipations</h2></header>
@@ -458,19 +462,18 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 
   /* Les jours visibles arrivent en cascade ; ceux plus bas apparaissent au défilement. */
   let observateur = null;
-  function animerCorps() {
-    const el = document.getElementById('corps');
-    const morceaux = [...el.querySelectorAll('.s-titre, .jour, .pied')];
+  function animerMorceaux(el) {
+    const morceaux = [...el.querySelectorAll('.s-titre, .jour')];
     const bas = window.innerHeight;
     let i = 0;
     for (const m of morceaux) {
       const haut = m.getBoundingClientRect().top;
       if (haut > bas) {
-        if (observateur) {
+        if (observateur && pret) {
           m.classList.add('revele');
           observateur.observe(m);
         }
-      } else if (pret && !calme && m.animate && i < 12) {
+      } else if (pret && !calme && m.animate && i < 10) {
         m.animate([{ opacity: 0, transform: 'translateY(8px)' }, { opacity: 1, transform: 'none' }], { duration: 320, delay: i * 35, easing: DOUX, fill: 'backwards' });
         i++;
       }
@@ -632,7 +635,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       return `<div class="h-bloc"><span class="h-mot">${mot} · ${jourBillet(x.date)}</span><span class="h-heure">${heure(x.depart)}</span><span class="h-trajet">${esc(x.gareDe)} → ${esc(x.gareA)}, arr. ${x.arrivee}</span></div>`;
     }
     const pourquoi = publie(etat.vendredi) ? 'rien à 0€ dans ta plage' : 'pas encore publié';
-    return `<div class="h-bloc vide"><span class="h-mot">${mot}</span><span class="h-heure">pas encore</span><span class="h-trajet">${esc(de)} → ${esc(a)}, ${pourquoi}</span></div>`;
+    return `<div class="h-bloc h-vide"><span class="h-mot">${mot}</span><span class="h-heure">pas encore</span><span class="h-trajet">${esc(de)} → ${esc(a)}, ${pourquoi}</span></div>`;
   }
 
   function majPlan(ev) {
@@ -640,14 +643,128 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     // Les départs écrits sont ceux du meilleur séjour, sinon les premiers à 0€.
     const a0 = ev.meilleur ? ev.meilleur.a : ev.zA[0];
     const r0 = ev.meilleur ? ev.meilleur.r : ev.zR[0];
-    let html;
-    if (r.mode === 'ar') {
-      html = blocDepart('ALLER', a0, 'Paris', court(r.aller)) + '<span class="h-filet" aria-hidden="true"></span>' + blocDepart('RETOUR', r0, court(r.retour), 'Paris');
+    const plan = document.getElementById('plan');
+    const forme = r.mode === 'ar' ? 'ar' : 'simple';
+    if (plan.dataset.forme !== forme) {
+      plan.innerHTML = forme === 'ar' ? '<div id="plan-a"></div><span class="h-filet" aria-hidden="true"></span><div id="plan-r"></div>' : '<div id="plan-a"></div>';
+      plan.dataset.forme = forme;
+    }
+    if (forme === 'ar') {
+      poserDoux('plan-a', blocDepart('ALLER', a0, 'Paris', court(r.aller)));
+      poserDoux('plan-r', blocDepart('RETOUR', r0, court(r.retour), 'Paris'));
     } else {
       const aller = r.sensSimple === 'aller';
-      html = blocDepart('TRAJET', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris');
+      poserDoux('plan-a', blocDepart('TRAJET', a0, aller ? 'Paris' : court(r.aller), aller ? court(r.aller) : 'Paris'));
     }
-    poserDoux('plan', html);
+    majDessin(a0, r0);
+  }
+
+  /* ---------- Les trois illustrations de la carte réponse ---------- */
+
+  const HORLOGE_BOUTON = () => `<button type="button" class="horloge" id="horloge" data-action="horloge" aria-label="Horloge de gare">${HORLOGE}</button>`;
+
+  function majDessin(a0, r0) {
+    const rendu = etat.r.rendu;
+    document.getElementById('illu').className = `illu r-${rendu}`;
+    const html = rendu === 'plaques' ? dessinPlaques(a0, r0) : rendu === 'carte' ? dessinCarte(a0, r0) : HORLOGE_BOUTON();
+    poserDoux('dessin', html);
+  }
+
+  const MAJ = (v) => court(v).toUpperCase();
+
+  /* Plaque émaillée : fond vert, filet lin, nom en capitales. Touchée, elle se balance sur ses crochets. */
+  function plaque(x, y, w, nom) {
+    const long = nom.length > 9;
+    return `<g class="plaque" data-action="plaque" style="transform-origin:${x + w / 2}px ${y - 5}px"><path d="M${x + 14} ${y - 5} V${y} M${x + w - 14} ${y - 5} V${y}" stroke="#24403B" stroke-width="1.4"/>
+<rect x="${x}" y="${y}" width="${w}" height="28" rx="5" fill="#24403B"/><rect x="${x + 3}" y="${y + 3}" width="${w - 6}" height="22" rx="3" fill="none" stroke="#F4F1E9" stroke-width=".8"/>
+<text x="${x + w / 2}" y="${y + 18.5}" text-anchor="middle" class="d-plaque" style="font-size:${long ? 10.5 : 12.5}px;letter-spacing:${long ? 0.8 : 2}px">${esc(nom)}</text></g>`;
+  }
+
+  function voieFerree(y, actif) {
+    return `<g opacity="${actif ? 1 : 0.35}"><path d="M6 ${y} H316" stroke="#B79B5E" stroke-width="10" stroke-dasharray="1.6 6" opacity=".75"/><path d="M6 ${y - 3} H316 M6 ${y + 3} H316" stroke="#24403B" stroke-width="1.2"/></g>`;
+  }
+
+  function petitTrain(x0, y, gauche) {
+    let out = '';
+    for (let k = 0; k < 3; k++) {
+      const x = x0 + k * 22;
+      const loco = gauche ? k === 0 : k === 2;
+      out += `<rect x="${x}" y="${y - 17}" width="20" height="11" rx="2.5" fill="${loco ? '#C8662F' : '#FFFDF7'}" stroke="#24403B" stroke-width="1.1"/><rect x="${x + 4}" y="${y - 14.5}" width="4" height="3.5" fill="#24403B" opacity=".75"/><rect x="${x + 12}" y="${y - 14.5}" width="4" height="3.5" fill="#24403B" opacity=".75"/><circle cx="${x + 5}" cy="${y - 4.5}" r="1.8" fill="#24403B"/><circle cx="${x + 15}" cy="${y - 4.5}" r="1.8" fill="#24403B"/>`;
+    }
+    return out;
+  }
+
+  function dessinPlaques(a0, r0) {
+    const r = etat.r;
+    const t = (x, y, ancre, texte) => `<text x="${x}" y="${y}" text-anchor="${ancre}" class="d-mono">${texte}</text>`;
+    const absent = (y) => `<text x="161" y="${y}" text-anchor="middle" class="d-ital" font-size="11.5">pas encore de train à 0€</text>`;
+    if (r.mode !== 'ar') {
+      const aller = r.sensSimple === 'aller';
+      const x = a0;
+      return `<svg viewBox="0 0 322 92" role="img" aria-label="Plaques de gare">${plaque(4, 8, 100, aller ? 'PARIS' : MAJ(r.aller))}${plaque(206, 8, 112, aller ? MAJ(r.aller) : 'PARIS')}
+${x ? t(155, 23, 'middle', jourBillet(x.date)) + t(54, 50, 'middle', `dép. ${heure(x.depart)}`) + t(262, 50, 'middle', `arr. ${x.arrivee}`) : ''}
+${voieFerree(72, !!x)}${x ? `<g class="${aller ? 'navA' : 'navA'}">${petitTrain(10, 72, false)}</g>` : absent(62)}</svg>`;
+    }
+    const deux = r.aller !== r.retour;
+    return `<svg viewBox="0 0 322 ${deux ? 160 : 128}" role="img" aria-label="Plaques de gare">${plaque(4, 8, 100, 'PARIS')}${plaque(206, 8, 112, MAJ(r.aller))}
+${a0 ? t(155, 23, 'middle', jourBillet(a0.date)) + t(54, 50, 'middle', `dép. ${heure(a0.depart)}`) + t(262, 50, 'middle', `arr. ${a0.arrivee}`) : ''}
+${voieFerree(70, !!a0)}${a0 ? `<g class="navA">${petitTrain(10, 70, false)}</g>` : absent(60)}
+${voieFerree(102, !!r0)}${r0 ? `<g class="navR">${petitTrain(248, 102, true)}</g>` : absent(92)}
+${r0 ? t(54, 120, 'middle', `arr. ${r0.arrivee}`) + t(155, 120, 'middle', jourBillet(r0.date)) + t(262, 120, 'middle', `dép. ${heure(r0.depart)}`) : ''}
+${deux ? plaque(206, 130, 112, MAJ(r.retour)) : ''}</svg>`;
+  }
+
+  /* Carte ancienne : symbole des voies ferrées des vieilles cartes, rose des vents, villes en italique. */
+  const POS = { Paris: [40, 32], Lyon: [176, 70], Annecy: [290, 46], 'Chambéry': [274, 82], Grenoble: [254, 114], 'Saint Marcellin': [212, 126], Valence: [166, 122] };
+  const ETIQ = { Paris: [52, 22, 'start'], Lyon: [184, 66, 'start'], Annecy: [282, 34, 'end'], 'Chambéry': [266, 79, 'end'], Grenoble: [262, 118, 'start'], 'Saint Marcellin': [220, 131, 'start'], Valence: [166, 141, 'middle'] };
+  const cheminAller = (v) => { const [x, y] = POS[v]; return `M40 32 C110 30 ${x - 70} ${y - 46} ${x} ${y}`; };
+  const cheminRetour = (v) => { const [x, y] = POS[v]; return `M${x} ${y} C${x - 40} ${y - 4} 120 62 40 32`; };
+
+  function trace(d, actif) {
+    return actif
+      ? `<path d="${d}" stroke="#24403B" stroke-width="5.5" fill="none"/><path d="${d}" stroke="#FBF6EA" stroke-width="3" fill="none" stroke-dasharray="7 7"/>`
+      : `<path d="${d}" stroke="#B79B5E" stroke-width="1.4" fill="none" stroke-dasharray="2 4"/>`;
+  }
+
+  function repere(d, debut, fin) {
+    return `<g opacity="0"><circle r="8.5" fill="#C8662F" opacity=".25"/><circle r="4.5" fill="#C8662F" stroke="#24403B" stroke-width=".8"/>
+<animateMotion path="${d}" dur="7s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;${debut};${fin};1" calcMode="linear"/>
+<animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;${Math.max(0, debut - 0.001)};${debut};${fin};${Math.min(1, fin + 0.02)};1" dur="7s" repeatCount="indefinite"/></g>`;
+  }
+
+  function dessinCarte(a0, r0) {
+    const r = etat.r;
+    let routes = '';
+    let actives = [];
+    if (r.mode === 'ar') {
+      routes += trace(cheminAller(r.aller), !!a0) + trace(cheminRetour(r.retour), !!r0);
+      if (r.aller !== r.retour) {
+        const [x1, y1] = POS[r.aller];
+        const [x2, y2] = POS[r.retour];
+        routes += `<path d="M${x1} ${y1} L${x2} ${y2}" stroke="#C8662F" stroke-width="1.6" fill="none" stroke-dasharray="1 4" stroke-linecap="round"/>`;
+      }
+      if (a0) routes += repere(cheminAller(r.aller), 0, 0.4);
+      if (r0) routes += repere(cheminRetour(r.retour), 0.5, 0.9);
+      actives = [[r.aller, !!a0], [r.retour, !!r0]];
+    } else {
+      const aller = r.sensSimple === 'aller';
+      const d = aller ? cheminAller(r.aller) : cheminRetour(r.aller);
+      routes += trace(d, !!a0) + (a0 ? repere(d, 0, 0.8) : '');
+      actives = [[r.aller, !!a0]];
+    }
+    const gares = Object.keys(POS).map((v) => {
+      const [x, y] = POS[v];
+      const [lx, ly, ancre] = ETIQ[v];
+      const choisie = v === 'Paris' || actives.some(([c]) => c === v);
+      const zero = actives.some(([c, z]) => c === v && z);
+      return `<g opacity="${choisie ? 1 : 0.35}"><circle cx="${x}" cy="${y}" r="5.5" fill="#FBF6EA" stroke="#24403B" stroke-width="1.6"/><circle cx="${x}" cy="${y}" r="2" fill="${zero ? '#C8662F' : '#24403B'}"/><text x="${lx}" y="${ly}" text-anchor="${ancre}" class="d-ital" font-size="${choisie ? 14 : 10.5}">${esc(court(v))}</text></g>`;
+    }).join('');
+    return `<svg viewBox="0 0 322 152" role="img" aria-label="Carte du trajet">
+<rect x="1" y="1" width="320" height="150" rx="6" fill="#FBF6EA" stroke="#B79B5E" stroke-width="1"/><rect x="5" y="5" width="312" height="142" rx="3" fill="none" stroke="#B79B5E" stroke-width=".6"/>
+<g stroke="#B79B5E" stroke-opacity=".45" stroke-width=".6" stroke-dasharray="1 3"><path d="M5 52 H317 M5 100 H317 M110 5 V147 M214 5 V147"/></g>
+<path d="M150 5 C140 46 186 84 176 147" stroke="#9FB3AE" stroke-width="1.3" fill="none" opacity=".7"/>
+<g class="rose" data-action="rose" style="transform-origin:30px 122px"><circle cx="30" cy="122" r="16" fill="transparent"/><circle cx="30" cy="122" r="9" fill="none" stroke="#B79B5E" stroke-width=".7"/><path d="M30 107 L33 122 L30 137 L27 122Z" fill="#24403B"/><path d="M15 122 L30 125 L45 122 L30 119Z" fill="#FBF6EA" stroke="#24403B" stroke-width=".8"/><text x="30" y="104" text-anchor="middle" class="d-ital" font-size="9">N</text></g>
+${routes}${gares}</svg>`;
   }
 
   function majVerdict(ev) {
@@ -734,6 +851,14 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     return `<p class="payants"><span class="p-titre">Payants</span>${items}</p>`;
   }
 
+  /* « vérifier » : ouvre ce jour sur SNCF Connect, au début de la plage. Les 0€ apparus depuis le relevé y sont visibles. */
+  function lienVerifier(c, i, date) {
+    if (date > (etat.fin || '') || date < aujourdhui()) return '';
+    const h = Math.min(23, Math.max(c.de, i * 24) - i * 24);
+    const [de, a] = c.sens === 'aller' ? ['Paris', c.ville] : [c.ville, 'Paris'];
+    return `<a class="j-verif" href="${esc(lienSncf(de, a, date, `${String(h).padStart(2, '0')}:00`))}" target="_blank" rel="noopener" aria-label="Vérifier le ${JOURS_NOMS[i]} sur SNCF Connect">vérifier${FLECHE}</a>`;
+  }
+
   function blocJour(c, i, nouveaux) {
     const date = ajouterJours(etat.vendredi, i);
     const tous = trajets(c.sens, c.ville).filter((x) => x.date === date && dans(x, c.de, c.a));
@@ -741,19 +866,19 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const payants = tous.filter((x) => !x.zero);
     const libres = zero.filter((x) => !estParti(x.date, x.depart));
     const cle = `${c.cle}|${date}`;
-    const ouvert = etat.ouverts.get(cle) === true;
     const resume = date > (etat.fin || '') ? '<span class="j-rien">pas encore publié</span>' : libres.length === 0
       ? '<span class="j-rien">aucun 0€</span>'
       : `<span class="j-zero">${libres.length === 1 ? `${heure(libres[0].depart)} à 0€` : `${libres.length} trains à 0€`}</span>`;
     const avecPayants = etat.r.payants && payants.length > 0;
     if (!zero.length && !avecPayants) {
-      return `<div class="jour fixe"><div class="j-tete"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span></div></div>`;
+      return `<div class="jour fixe"><div class="j-tete"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${lienVerifier(c, i, date)}</div></div>`;
     }
     let dedans = zero.map((x) => rangee(x)).join('');
-    if (!zero.length) dedans += '<p class="vide">Rien à 0€ dans ta plage.</p>';
+    if (!zero.length) dedans += `<p class="vide">Rien à 0€ dans ta plage. ${lienVerifier(c, i, date)}</p>`;
     if (avecPayants) dedans += lignePayants(payants);
-    return `<div class="jour${ouvert ? ' ouvert' : ''}${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
-<button type="button" class="j-tete" data-action="jour" aria-expanded="${ouvert}"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${CHEVRON}</button>
+    // l'état ouvert ou fermé n'est pas dans le HTML : il est remis après coup, pour qu'ouvrir un jour ne force pas à tout réécrire
+    return `<div class="jour${libres.length ? ' a-zero' : ''}" data-cle="${cle}">
+<button type="button" class="j-tete" data-action="jour" aria-expanded="false"><span class="j-nom">${JOURS_NOMS[i]} ${jourDuMois(date)}</span><span class="j-resume">${resume}</span>${CHEVRON}</button>
 <div class="j-corps"><div class="j-dedans">${dedans}</div></div>
 </div>`;
   }
@@ -764,7 +889,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
       if (c.a <= i * 24 || c.de >= (i + 1) * 24) continue;
       html += blocJour(c, i, nouveaux);
     }
-    return `<section class="section">${html}</section>`;
+    return html;
   }
 
   function majCorps() {
@@ -772,18 +897,33 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const nouveaux = new Set((etat.donnees.changements || []).filter((x) => x.zero && x.avant === false).map(cleTrain));
     const cs = cotes();
     const plage = (de, a) => `${libelleHeure(de)} → ${libelleHeure(a)}`;
-    const html = r.mode === 'ar'
-      ? section(cs[0], 'Aller', `Paris → ${court(r.aller)}`, plage(r.ad, r.aa), nouveaux)
-        + section(cs[1], 'Retour', `${court(r.retour)} → Paris`, plage(r.rd, r.ra), nouveaux)
-      : section(cs[0], 'Trajet', r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`, plage(r.ad, r.aa), nouveaux);
+    const parts = r.mode === 'ar'
+      ? [['sec-a', section(cs[0], 'Aller', `Paris → ${court(r.aller)}`, plage(r.ad, r.aa), nouveaux)],
+        ['sec-r', section(cs[1], 'Retour', `${court(r.retour)} → Paris`, plage(r.rd, r.ra), nouveaux)]]
+      : [['sec-a', section(cs[0], 'Trajet', r.sensSimple === 'aller' ? `Paris → ${court(r.aller)}` : `${court(r.aller)} → Paris`, plage(r.ad, r.aa), nouveaux)]];
+    const corps = document.getElementById('corps');
+    const ids = parts.map(([id]) => id).join(',');
+    if (corps.dataset.ids !== ids) {
+      corps.innerHTML = `${parts.map(([id]) => `<section class="section" id="${id}"></section>`).join('')}<p class="pied" id="pied"></p>`;
+      corps.dataset.ids = ids;
+    }
+    for (const [id, html] of parts) {
+      if (!poser(id, html)) continue;
+      const el = document.getElementById(id);
+      for (const j of el.querySelectorAll('.jour[data-cle]')) {
+        if (etat.ouverts.get(j.dataset.cle) !== true) continue;
+        j.classList.add('ouvert');
+        j.querySelector('.j-tete').setAttribute('aria-expanded', 'true');
+      }
+      animerMorceaux(el);
+    }
     const avecStats = etat.stats && Object.keys(etat.stats.trains || {}).length;
     const ter = etat.ter && etat.ter.genere ? ` Horaires TER du ${esc(instant(etat.ter.genere))}.` : '';
     const minimum = (etat.stats && etat.stats.minimum) || 4;
     const note = r.payants
       ? (avecStats ? 'Pourcentage : la part des weekends relevés où ce train payant est passé à 0€ avant le départ. ' : `Les pourcentages des payants apparaîtront après ${minimum} weekends relevés. `)
       : '';
-    const change = poser('corps', `${html}<p class="pied">${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, mis à jour une fois par jour : vérifie sur SNCF Connect avant de réserver.${ter}</p>`);
-    if (change) animerCorps();
+    poser('pied', `${note}Open data SNCF du ${esc(instant(etat.donnees.maj_sncf))}, relevée toutes les 30 minutes. Entre deux publications, le lien « vérifier » ouvre le jour sur SNCF Connect.${ter}`);
   }
 
   /* ---------- Plier et déplier en douceur ---------- */
@@ -822,7 +962,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   /* ---------- L'horloge de gare ----------
      Petit secret : un appui fait balancer l'horloge sur son crochet et les aiguilles s'emballent. */
 
-  function appuyerHorloge() {
+  function appuyerHorloge(looping) {
     const el = document.getElementById('horloge');
     if (calme || !el.animate) return;
     const lancer = (id, images, duree, courbe) => {
@@ -832,10 +972,97 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     };
     const emballe = 'cubic-bezier(.2, .7, .1, 1)';
     // l'horloge se balance sur son crochet ; les aiguilles font des tours entiers et retombent où elles en étaient
-    lancer('balance', [0, 14, -10, 6, -3, 1, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 1600, 'ease-out');
+    if (looping) lancer('balance', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-30deg)', offset: 0.2 }, { transform: 'rotate(360deg)' }], 1500, 'cubic-bezier(.45, 0, .2, 1)');
+    else lancer('balance', [0, 14, -10, 6, -3, 1, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 1600, 'ease-out');
     lancer('tour-h', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], 1200, emballe);
     lancer('tour-m', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(1440deg)' }], 1200, emballe);
     lancer('tour-s', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-1080deg)' }], 1200, emballe);
+  }
+
+  /* ---------- Le rendu de la carte réponse ---------- */
+
+  function changerRendu() {
+    const r = etat.r;
+    r.rendu = RENDUS[(RENDUS.indexOf(r.rendu) + 1) % RENDUS.length];
+    sauver();
+    const carte = document.querySelector('.resultat');
+    const avant = carte.offsetHeight;
+    majPlan(evaluer());
+    animerHauteur(carte, avant);
+    tourner(document.getElementById('rendu'), [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], 600, DOUX);
+  }
+
+  /* ---------- Petits secrets ----------
+     - le logo touché cinq fois de suite : un train traverse le bandeau ;
+     - l'horloge touchée trois fois vite : elle fait un tour complet sur son crochet ;
+     - un appui long sur « Ton weekend » : il souhaite bon weekend ;
+     - la rose des vents de la carte ancienne : elle s'affole ;
+     - les plaques émaillées : elles se balancent sur leurs crochets. */
+
+  const rafales = {};
+  function rafale(cle, n, fenetre) {
+    const t = performance.now();
+    const l = (rafales[cle] || []).filter((x) => t - x < fenetre);
+    l.push(t);
+    rafales[cle] = l;
+    if (l.length < n) return false;
+    rafales[cle] = [];
+    return true;
+  }
+
+  function tourner(el, images, duree, courbe) {
+    if (!el || calme || !el.animate) return;
+    if (el._a) el._a.cancel();
+    el._a = el.animate(images, { duration: duree, easing: courbe });
+  }
+
+  function secouerLogo() {
+    tourner(document.querySelector('.logo'), [-6, -16, 4, -10, -6].map((d) => ({ transform: `rotate(${d}deg)` })), 500, 'ease-out');
+  }
+
+  function trainQuiPasse() {
+    const tete = document.getElementById('tete');
+    if (calme || tete.querySelector('.passage')) return;
+    const p = document.createElement('div');
+    p.className = 'passage';
+    p.setAttribute('aria-hidden', 'true');
+    p.innerHTML = `<svg viewBox="0 0 120 22" width="120" height="22">${[0, 1, 2, 3].map((k) => `<rect x="${k * 29}" y="3" width="27" height="13" rx="3" fill="${k === 3 ? '#C8662F' : '#F4F1E9'}" stroke="#1A302C" stroke-width="1"/><rect x="${k * 29 + 5}" y="6" width="6" height="4" fill="#24403B"/><rect x="${k * 29 + 15}" y="6" width="6" height="4" fill="#24403B"/><circle cx="${k * 29 + 7}" cy="18" r="2.4" fill="#F4F1E9"/><circle cx="${k * 29 + 20}" cy="18" r="2.4" fill="#F4F1E9"/>`).join('')}</svg>`;
+    tete.appendChild(p);
+    p.addEventListener('animationend', () => p.remove());
+  }
+
+  function appuiLong() {
+    const h1 = document.querySelector('.titre h1');
+    let minuteur = 0;
+    const annuler = () => clearTimeout(minuteur);
+    h1.addEventListener('pointerdown', () => {
+      annuler();
+      minuteur = setTimeout(() => {
+        vibrer();
+        h1.textContent = 'Bon weekend !';
+        tourner(h1, [{ transform: 'scale(1)' }, { transform: 'scale(1.06)' }, { transform: 'scale(1)' }], 500, DOUX);
+        setTimeout(() => { h1.textContent = 'Ton weekend'; }, 2600);
+      }, 650);
+    });
+    for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) h1.addEventListener(ev, annuler);
+  }
+
+  /* ---------- Données fraîches : quand l'appli revient au premier plan, on relit le dernier relevé ---------- */
+
+  async function rafraichir() {
+    if (document.hidden || Date.now() - etat.charge < 5 * 60000) return;
+    etat.charge = Date.now();
+    try {
+      const d = await charger('data/latest.json');
+      if (d.releve === etat.donnees.releve && d.maj_sncf === etat.donnees.maj_sncf) return;
+      etat.donnees = d;
+      etat.cache.clear();
+      const dates = d.trains.map((t) => t.date).sort();
+      etat.fin = dates[dates.length - 1];
+      majResultats();
+    } catch (e) {
+      /* hors ligne : on garde ce qu'on a */
+    }
   }
 
   /* ---------- Mes anticipations (gardées sur le téléphone seulement) ----------
@@ -1039,12 +1266,21 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
 
   /* ---------- Interactions ---------- */
 
-  function changer(fn, reglages = true) {
+  function changer(fn, reglages = true, cote = null) {
     fn();
-    etat.ouverts.clear();
+    oublier(cote);
     sauver();
     if (reglages) majReglages();
     majResultats();
+  }
+
+  /* Les jours ouverts restent ouverts du côté qui n'a pas changé. */
+  function oublier(cote) {
+    if (!cote) {
+      etat.ouverts.clear();
+      return;
+    }
+    for (const k of [...etat.ouverts.keys()]) if (k.startsWith(`${cote}|`)) etat.ouverts.delete(k);
   }
 
   const LIMITES = {
@@ -1056,6 +1292,7 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
 
   // Pendant le glissement : frise, coches et points des villes seulement. Au lâcher : tout le reste.
   let aBouge = false;
+  const touches = new Set();
   let attenteFrise = false;
   let attenteResultats = null;
   function surCurseur(e) {
@@ -1067,6 +1304,7 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     if (Number(input.value) !== v) input.value = v;
     if (v === r[cle]) return;
     r[cle] = v;
+    touches.add(cle[0] === 'r' && r.mode === 'ar' ? 'r' : 'a');
     if (!aBouge) document.querySelector('.frise').classList.add('glisse');
     aBouge = true;
     if (!attenteFrise) {
@@ -1086,7 +1324,9 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     clearTimeout(attenteResultats);
     document.querySelector('.frise').classList.remove('glisse');
     sauver();
-    etat.ouverts.clear();
+    if (touches.size === 1) oublier([...touches][0]);
+    else oublier();
+    touches.clear();
     majResultats();
   }
 
@@ -1107,7 +1347,24 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
       return;
     }
     if (action === 'horloge') {
-      appuyerHorloge();
+      appuyerHorloge(rafale('horloge', 3, 1500));
+      return;
+    }
+    if (action === 'rendu') {
+      changerRendu();
+      return;
+    }
+    if (action === 'logo') {
+      secouerLogo();
+      if (rafale('logo', 5, 2500)) trainQuiPasse();
+      return;
+    }
+    if (action === 'rose') {
+      tourner(b, [{ transform: 'rotate(0deg)' }, { transform: 'rotate(720deg)' }], 1500, 'cubic-bezier(.2, .7, .1, 1)');
+      return;
+    }
+    if (action === 'plaque') {
+      tourner(b, [0, 9, -7, 4, -2, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 1200, 'ease-out');
       return;
     }
     if (action === 'jour' || action === 'reglages') {
@@ -1125,7 +1382,7 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     if (action === 'ville') {
       const cle = b.dataset.cote === 'r' ? 'retour' : 'aller';
       if (r[cle] === b.dataset.ville) return;
-      changer(() => { r[cle] = b.dataset.ville; });
+      changer(() => { r[cle] = b.dataset.ville; }, true, r.mode === 'ar' ? b.dataset.cote : null);
     } else if (action === 'mode') {
       if (r.mode === b.dataset.mode) return;
       changer(() => { r.mode = b.dataset.mode; });
@@ -1171,6 +1428,10 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     }
     majReglages();
     majResultats();
+    appuiLong();
+    etat.charge = Date.now();
+    document.addEventListener('visibilitychange', rafraichir);
+    setInterval(rafraichir, 10 * 60000);
     pret = true;
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);

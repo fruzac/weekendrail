@@ -38,7 +38,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 a { color: inherit; }
 
 /* Fond : un réseau de voies en pointillés et de petites gares, fixe derrière la page. */
-.fond { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: 0.8; background: url('reseau.svg') center top / cover no-repeat; }
+.fond { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: url('fond.svg') center top / cover no-repeat; }
 
 .app { position: relative; z-index: 1; max-width: 560px; margin: 0 auto; min-height: 100vh; }
 
@@ -58,7 +58,7 @@ a { color: inherit; }
 .titre { display: flex; align-items: center; gap: 12px; }
 .logo { width: 50px; height: auto; flex-shrink: 0; transform: rotate(-6deg); animation: arrive .9s var(--doux) both; }
 .t-textes { display: flex; flex-direction: column; gap: 2px; }
-.titre h1 { margin: 0; font-family: var(--titre); font-size: 30px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.05; white-space: nowrap; }
+.titre h1 { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; margin: 0; font-family: var(--titre); font-size: 30px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.05; white-space: nowrap; }
 .dates { font-size: 13px; color: var(--sauge); }
 .bouton-antic { margin-left: auto; flex-shrink: 0; align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; min-width: 40px; min-height: 40px; padding: 0 11px; border-radius: 12px; background: var(--verre); border: 1.5px dashed var(--bord); color: var(--lin); font-family: var(--mono); font-size: 13px; font-weight: 600; white-space: nowrap; }
 
@@ -173,7 +173,7 @@ a { color: inherit; }
   animation: monte .6s .15s var(--doux) both;
 }
 .resultat::before { content: ""; position: absolute; inset: 5px; border: 1.5px dashed var(--laiton-clair); border-radius: 17px; pointer-events: none; }
-.verdict { display: flex; align-items: center; gap: 12px; }
+.verdict { display: flex; align-items: center; gap: 12px; padding-right: 38px; }
 .v-texte { display: flex; flex-direction: column; flex: 1; min-width: 0; gap: 3px; }
 .v-n { display: inline-block; text-align: right; font-variant-numeric: tabular-nums lining-nums; }
 .v-titre { font-family: var(--titre); font-size: 23px; font-weight: 700; letter-spacing: -0.3px; line-height: 1.15; color: var(--encre); }
@@ -181,8 +181,31 @@ a { color: inherit; }
 .v-sous { font-size: 13.5px; color: var(--gris); }
 .v-antic { align-self: flex-start; margin-top: 8px; min-height: 34px; padding: 0 14px; border-radius: 10px; background: transparent; border: 1.5px dashed var(--vert); color: var(--vert); font-size: 14px; font-weight: 600; transition: transform .2s var(--ressort), background-color .2s ease; }
 
-/* Horloge de gare et les deux départs */
-.horl { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; column-gap: 12px; padding-top: 14px; border-top: 3px double var(--laiton-clair); }
+/* Bouton qui change l'illustration */
+.rendu {
+  position: absolute; top: 14px; right: 14px; z-index: 1; display: grid; place-items: center; width: 34px; height: 34px;
+  border-radius: 50%; border: 1.5px dashed var(--laiton); background: var(--papier); color: var(--vert);
+}
+.rendu:active { transform: scale(0.92); }
+
+/* L'illustration et les deux départs */
+.illu { padding-top: 14px; border-top: 3px double var(--laiton-clair); }
+.illu.r-horloge { display: grid; grid-template-columns: 128px minmax(0, 1fr); align-items: center; column-gap: 12px; }
+.illu.r-plaques, .illu.r-carte { display: flex; flex-direction: column; gap: 12px; }
+.illu.r-plaques .h-blocs[data-forme="ar"], .illu.r-carte .h-blocs[data-forme="ar"] { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+.illu:not(.r-horloge) .h-filet { display: none; }
+.illu:not(.r-horloge) #plan-r { padding-left: 12px; border-left: 3px double var(--laiton-clair); }
+.illu:not(.r-horloge) .h-heure { font-size: 20px; }
+.dessin { min-width: 0; }
+.dessin svg { display: block; width: 100%; height: auto; overflow: visible; }
+.d-mono { font-family: var(--mono); font-size: 9.5px; letter-spacing: .8px; fill: #5A6863; }
+.d-ital { font-family: var(--titre); font-style: italic; fill: var(--vert); }
+.d-plaque { font-family: var(--titre); font-weight: 700; fill: var(--lin); }
+.plaque, .rose { cursor: pointer; }
+@keyframes navA { 0% { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 86% { opacity: 1; } 100% { transform: translateX(232px); opacity: 0; } }
+@keyframes navR { 0% { transform: translateX(0); opacity: 0; } 8% { opacity: 1; } 86% { opacity: 1; } 100% { transform: translateX(-232px); opacity: 0; } }
+.navA { animation: navA 4.4s cubic-bezier(.45, 0, .55, 1) infinite; }
+.navR { animation: navR 4.4s cubic-bezier(.45, 0, .55, 1) 2.2s infinite both; }
 .horloge { display: block; width: 128px; padding: 0; border: 0; background: transparent; border-radius: 50%; -webkit-tap-highlight-color: transparent; }
 .horloge svg { display: block; width: 128px; height: auto; overflow: visible; }
 /* les aiguilles tournent vite et en continu ; elles partent de 10h10 */
@@ -196,8 +219,7 @@ a { color: inherit; }
 .h-bloc { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
 .h-mot { font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px; color: var(--gris-papier); }
 .h-heure { font-family: var(--titre); font-size: 23px; font-weight: 700; color: var(--encre); line-height: 1.15; }
-.h-bloc.vide .h-trajet { white-space: normal; }
-.h-bloc.vide .h-heure { font-style: italic; font-weight: 500; font-size: 18px; color: var(--gris); }
+.h-vide .h-heure { font-style: italic; font-weight: 500; font-size: 18px; color: var(--gris); }
 .h-trajet { font-size: 12.5px; line-height: 1.3; color: var(--gris); }
 .h-filet { border-top: 3px double var(--laiton-clair); margin: 9px 0; }
 
@@ -215,6 +237,8 @@ a { color: inherit; }
 .j-tete { width: 100%; display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 0 16px; border: 0; background: transparent; text-align: left; color: var(--encre); }
 .j-nom { font-family: var(--titre); font-size: 18px; font-weight: 700; }
 .j-resume { margin-left: auto; font-family: var(--mono); font-size: 13px; }
+.j-verif { display: inline-flex; align-items: center; gap: 3px; margin-left: 10px; padding: 4px 8px; border-radius: 8px; border: 1px dashed var(--laiton); color: var(--vert); font-family: var(--mono); font-size: 11px; text-decoration: none; white-space: nowrap; }
+.vide .j-verif { margin-left: 6px; }
 .j-rien { color: var(--gris); }
 .j-zero { color: var(--cuivre-texte); font-weight: 600; }
 .j-dedans { display: flex; flex-direction: column; gap: 10px; padding: 2px 10px 12px; }
@@ -293,6 +317,9 @@ a.billet:active { transform: scale(0.98); }
   .v-antic:hover { background: rgba(36, 64, 59, 0.06); }
   .jour:not(.fixe) .j-tete:hover .j-nom { text-decoration: underline; text-decoration-color: var(--laiton-clair); text-underline-offset: 4px; }
 }
+/* secret du logo : un train traverse le bandeau */
+.passage { position: absolute !important; left: 0; bottom: 37px; z-index: 2; pointer-events: none; animation: passe 2.8s cubic-bezier(.45, 0, .55, 1) both !important; }
+@keyframes passe { from { transform: translateX(-130px); } to { transform: translateX(min(560px, 100vw)); } }
 /* au défilement, les jours apparaissent en montant légèrement */
 .revele { opacity: 0; transform: translateY(14px); }
 .revele.vu { opacity: 1; transform: none; transition: opacity .5s var(--doux), transform .5s var(--doux); }
