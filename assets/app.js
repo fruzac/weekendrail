@@ -338,7 +338,7 @@
   /* Logo : un billet à 0€. */
   const LOGO = `<svg class="logo" viewBox="0 0 54 40" aria-hidden="true"><path d="M4 6 H50 V15 A5 5 0 0 0 50 25 V34 H4 V25 A5 5 0 0 0 4 15 Z" fill="#F4F1E9"/><path d="M36 9 V31" stroke="#B79B5E" stroke-width="2" stroke-dasharray="2 3"/><text x="20" y="25" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-weight="700" font-size="14" fill="#C8662F">0€</text><circle cx="44" cy="20" r="3" fill="#24403B"/></svg>`;
 
-  /* Horloge de gare : cadran à chiffres romains. Les aiguilles sont tournées en JavaScript. */
+  /* Horloge de gare : cadran à chiffres romains. Les aiguilles tournent vite, pour le plaisir de l'œil. */
   const HORLOGE = (() => {
     let traits = '';
     for (let i = 0; i < 60; i++) {
@@ -347,18 +347,18 @@
       const p = (r) => `${(58 + r * Math.sin(a)).toFixed(1)} ${(66 - r * Math.cos(a)).toFixed(1)}`;
       traits += `<path d="M${p(r1)} L${p(44.5)}" stroke-width="${i % 5 === 0 ? 1.6 : 0.6}"/>`;
     }
-    return `<svg viewBox="0 0 116 122" aria-hidden="true">
-<g class="poussoir"><rect x="52" y="0" width="12" height="6" rx="2" fill="#B79B5E" stroke="#24403B" stroke-width="1"/><rect x="55" y="5.5" width="6" height="6" fill="#24403B"/></g>
+    return `<svg viewBox="0 0 116 122" aria-hidden="true"><g class="boitier" id="boitier">
+<g class="poussoir"><rect x="51" y="0.5" width="14" height="6" rx="2" fill="#B79B5E" stroke="#24403B" stroke-width="1"/></g>
+<rect x="55" y="5" width="6" height="12" fill="#24403B"/>
 <circle cx="58" cy="66" r="50.5" fill="#FBF6EA" stroke="#24403B" stroke-width="3"/>
 <circle cx="58" cy="66" r="47" fill="none" stroke="#B79B5E" stroke-width=".8"/>
 <g stroke="#24403B">${traits}</g>
 <g font-family="Fraunces, Georgia, serif" font-size="10.5" font-weight="600" fill="#24403B" text-anchor="middle"><text x="58" y="36.5">XII</text><text x="87.5" y="69.8">III</text><text x="58" y="103.5">VI</text><text x="28.5" y="69.8">IX</text></g>
-<text class="h-chrono" x="58" y="88" text-anchor="middle" id="h-chrono">0,0 s</text>
-<g class="aig aig-h" id="aig-h"><path d="M58 70 L58 45" stroke="#24403B" stroke-width="3.2" stroke-linecap="round"/><path d="M58 40 L61 45 L58 49 L55 45Z" fill="#24403B"/></g>
-<g class="aig aig-m" id="aig-m"><path d="M58 72 L58 28" stroke="#24403B" stroke-width="1.8" stroke-linecap="round"/></g>
-<g class="aig aig-s" id="aig-s"><path d="M58 76 L58 25" stroke="#C8662F" stroke-width="1"/><circle cx="58" cy="31" r="2" fill="none" stroke="#C8662F" stroke-width="1"/></g>
+<g class="tour" id="tour-h"><g class="aig aig-h"><path d="M58 70 L58 45" stroke="#24403B" stroke-width="3.2" stroke-linecap="round"/><path d="M58 40 L61 45 L58 49 L55 45Z" fill="#24403B"/></g></g>
+<g class="tour" id="tour-m"><g class="aig aig-m"><path d="M58 72 L58 28" stroke="#24403B" stroke-width="1.8" stroke-linecap="round"/></g></g>
+<g class="tour" id="tour-s"><g class="aig aig-s"><path d="M58 76 L58 25" stroke="#C8662F" stroke-width="1"/><circle cx="58" cy="31" r="2" fill="none" stroke="#C8662F" stroke-width="1"/></g></g>
 <circle cx="58" cy="66" r="3.2" fill="#C8662F" stroke="#24403B" stroke-width=".8"/>
-</svg>`;
+</g></svg>`;
   })();
 
   function construire() {
@@ -405,7 +405,7 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
 </div>
 </div>
 </header>
-<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div class="horl"><button type="button" class="horloge" id="horloge" data-action="horloge" aria-label="Horloge de gare : touche pour lancer ou arrêter le chrono">${HORLOGE}</button><div id="plan" class="h-blocs"></div></div></section>
+<section class="resultat" aria-label="Réponse"><div id="verdict"></div><div class="horl"><button type="button" class="horloge" id="horloge" data-action="horloge" aria-label="Horloge de gare">${HORLOGE}</button><div id="plan" class="h-blocs"></div></div></section>
 <div class="corps" id="corps"></div>
 <section class="page-antic" id="page-antic" aria-label="Mes anticipations" hidden>
 <header class="pa-tete"><button type="button" class="pa-retour" data-action="fermer-antic" aria-label="Revenir aux trains"><svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m15 18-6-6 6-6"/></svg></button><h2>Mes anticipations</h2></header>
@@ -471,11 +471,17 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
   /* Le nombre d'heures du titre défile jusqu'à sa nouvelle valeur. */
   function compter(el, de, a) {
     if (!el || de === a || !pret || calme) return;
+    // largeur bloquée sur le plus long des deux nombres (chiffres à chasse fixe) : la suite du titre reste immobile
+    const chiffres = Math.max(String(de).length, String(a).length);
+    el.textContent = '0'.repeat(chiffres);
+    el.style.width = `${el.getBoundingClientRect().width}px`;
+    el.textContent = de;
     const t0 = performance.now();
     const pas = (t) => {
-      const k = Math.min(1, (t - t0) / 450);
+      const k = Math.min(1, (t - t0) / 520);
       el.textContent = Math.round(de + (a - de) * (1 - (1 - k) ** 3));
       if (k < 1) requestAnimationFrame(pas);
+      else el.style.width = '';
     };
     requestAnimationFrame(pas);
   }
@@ -590,9 +596,19 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     const html = cotes().map((c) => trajets(c.sens, c.ville).map((x) => {
       const ok = dans(x, c.de, c.a);
       const classes = ['coche', c.cle === 'r' ? 'cr' : 'ca', x.zero ? 'zero' : '', ok ? '' : 'hors'].filter(Boolean).join(' ');
-      return `<span class="${classes}" style="left:${pct(x.h)}"></span>`;
+      return `<span class="${classes}" style="left:${pct(x.h)}" data-c="${c.cle}" data-h="${x.h}"></span>`;
     }).join('')).join('');
     poser('coches', html);
+  }
+
+  /* Pendant le glissement, on n'éteint ou n'allume que les traits déjà posés. */
+  function allumerCoches() {
+    const r = etat.r;
+    for (const el of document.getElementById('coches').children) {
+      const h = Number(el.dataset.h);
+      const [de, a] = el.dataset.c === 'r' ? [r.rd, r.ra] : [r.ad, r.aa];
+      el.classList.toggle('hors', !(h >= de && h < a));
+    }
   }
 
   const quand = (x) => `${JOURS[Math.floor(x.h / 24)]} ${heure(x.depart)}`;
@@ -770,105 +786,51 @@ ${curseur('ad', 'Début de la plage aller')}${curseur('aa', 'Fin de la plage all
     if (bascule) bascule();
     else el.classList.toggle('ouvert', ouvrir);
     if (el._anim) el._anim.cancel();
+    if (el._animDedans) el._animDedans.cancel();
     const apres = ouvrir ? el.scrollHeight : 0;
     if (calme || !pret || avant === apres || !el.animate) return;
-    el._anim = el.animate(
-      [{ height: `${avant}px`, opacity: ouvrir ? 0.4 : 1 }, { height: `${apres}px`, opacity: ouvrir ? 1 : 0 }],
-      { duration: 300, easing: 'cubic-bezier(.25, .8, .25, 1)' },
-    );
-    el._anim.onfinish = () => { el._anim = null; };
+    const dedans = el.firstElementChild;
+    const courbe = 'cubic-bezier(.32, .72, 0, 1)';
+    const duree = ouvrir ? 420 : 320;
+    // le contenu est dessiné une fois sur sa propre couche : seule la découpe bouge, rien n'est repeint
+    if (dedans) dedans.style.willChange = 'transform, opacity';
+    el._anim = el.animate([{ height: `${avant}px` }, { height: `${apres}px` }], { duration: duree, easing: courbe });
+    if (dedans) {
+      el._animDedans = dedans.animate(
+        ouvrir
+          ? [{ opacity: 0, transform: 'translateY(-10px)' }, { opacity: 1, transform: 'none' }]
+          : [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'translateY(-6px)' }],
+        { duration: ouvrir ? duree : 220, easing: courbe, fill: 'forwards' },
+      );
+      el._animDedans.onfinish = () => { el._animDedans.cancel(); el._animDedans = null; };
+    }
+    el._anim.onfinish = () => {
+      el._anim = null;
+      if (dedans) dedans.style.willChange = '';
+    };
   }
 
   /* ---------- L'horloge de gare ----------
-     Elle donne l'heure de Paris, la trotteuse avance d'un cran chaque seconde.
-     Petit secret : un appui sur l'horloge enfonce le poussoir et lance un chrono, un deuxième l'arrête,
-     un troisième remet l'heure. */
-
-  const fmtSecondesParis = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: 'numeric', minute: 'numeric', second: 'numeric', hourCycle: 'h23' });
-  const horloge = { mode: 'heure', angles: { h: 0, m: 0, s: 0 }, debut: 0, ecoule: 0, raf: 0, tic: 0 };
-
-  function heureParis() {
-    const p = {};
-    for (const x of fmtSecondesParis.formatToParts(new Date())) p[x.type] = Number(x.value);
-    return p;
-  }
-
-  /* Les aiguilles ne tournent que dans le sens des aiguilles d'une montre, même en passant midi. */
-  function tourner(cibles) {
-    for (const k of ['h', 'm', 's']) {
-      let a = cibles[k];
-      const avant = horloge.angles[k];
-      while (a < avant - 0.01) a += 360;
-      horloge.angles[k] = a;
-      document.getElementById(`aig-${k}`).style.transform = `rotate(${a.toFixed(2)}deg)`;
-    }
-  }
-
-  function anglesHeure() {
-    const { hour: h, minute: m, second: s } = heureParis();
-    return { h: ((h % 12) + m / 60) * 30, m: (m + s / 60) * 6, s: s * 6 };
-  }
-
-  function texteChrono(ms) {
-    const s = ms / 1000;
-    if (s < 60) return `${s.toFixed(1).replace('.', ',')} s`;
-    const min = Math.floor(s / 60);
-    return `${min} min ${String(Math.floor(s % 60)).padStart(2, '0')} s`;
-  }
-
-  function boucleChrono() {
-    horloge.ecoule = performance.now() - horloge.debut;
-    const e = horloge.ecoule;
-    const base = horloge.base;
-    tourner({ h: base.h + (e / 3600000) * 30, m: base.m + (e / 60000) * 6, s: base.s + (e / 1000) * 6 });
-    document.getElementById('h-chrono').textContent = texteChrono(e);
-    horloge.raf = requestAnimationFrame(boucleChrono);
-  }
-
-  function demarrerHorloge() {
-    const el = document.getElementById('horloge');
-    tourner({ h: 0, m: 0, s: 0 });
-    // au premier affichage les aiguilles partent de midi et rejoignent l'heure
-    requestAnimationFrame(() => requestAnimationFrame(() => {
-      el.classList.add('lance');
-      tourner(anglesHeure());
-      setTimeout(() => el.classList.remove('lance'), 1500);
-    }));
-    horloge.tic = setInterval(() => { if (horloge.mode === 'heure') tourner(anglesHeure()); }, 1000);
-  }
+     Petit secret : un appui enfonce le poussoir, l'horloge tressaute et les aiguilles s'emballent. */
 
   function appuyerHorloge() {
     const el = document.getElementById('horloge');
+    el.classList.remove('appuie');
+    void el.offsetWidth;
     el.classList.add('appuie');
-    setTimeout(() => el.classList.remove('appuie'), 160);
-    if (horloge.mode === 'heure') {
-      // les trois aiguilles reviennent à midi, puis le chrono part
-      horloge.mode = 'chrono';
-      el.classList.add('chrono');
-      el.classList.remove('arret');
-      const zero = (a) => Math.ceil(a / 360) * 360;
-      horloge.base = { h: zero(horloge.angles.h), m: zero(horloge.angles.m), s: zero(horloge.angles.s) };
-      el.classList.remove('chrono');
-      tourner(horloge.base);
-      document.getElementById('h-chrono').textContent = texteChrono(0);
-      setTimeout(() => {
-        if (horloge.mode !== 'chrono') return;
-        el.classList.add('chrono');
-        horloge.debut = performance.now();
-        boucleChrono();
-      }, 550);
-    } else if (horloge.mode === 'chrono') {
-      horloge.mode = 'arret';
-      cancelAnimationFrame(horloge.raf);
-      el.classList.remove('chrono');
-      el.classList.add('arret');
-    } else {
-      horloge.mode = 'heure';
-      el.classList.remove('arret', 'chrono');
-      el.classList.add('lance');
-      tourner(anglesHeure());
-      setTimeout(() => el.classList.remove('lance'), 1500);
-    }
+    setTimeout(() => el.classList.remove('appuie'), 180);
+    if (calme || !el.animate) return;
+    const lancer = (id, images, duree, courbe) => {
+      const n = document.getElementById(id);
+      if (n._a) n._a.cancel();
+      n._a = n.animate(images, { duration: duree, easing: courbe });
+    };
+    const emballe = 'cubic-bezier(.2, .7, .1, 1)';
+    // des tours entiers : à la fin, chaque aiguille retombe exactement où elle en était
+    lancer('tour-h', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(360deg)' }], 1200, emballe);
+    lancer('tour-m', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(1440deg)' }], 1200, emballe);
+    lancer('tour-s', [{ transform: 'rotate(0deg)' }, { transform: 'rotate(-1080deg)' }], 1200, emballe);
+    lancer('boitier', [0, -7, 6, -3.5, 1.5, 0].map((d) => ({ transform: `rotate(${d}deg)` })), 750, 'ease-out');
   }
 
   /* ---------- Mes anticipations (gardées sur le téléphone seulement) ----------
@@ -1100,22 +1062,25 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     if (Number(input.value) !== v) input.value = v;
     if (v === r[cle]) return;
     r[cle] = v;
+    if (!aBouge) document.querySelector('.frise').classList.add('glisse');
     aBouge = true;
-    majPlages();
-    sauver();
     if (!attenteFrise) {
       attenteFrise = true;
       requestAnimationFrame(() => {
         attenteFrise = false;
-        majCoches();
+        majPlages();
+        allumerCoches();
       });
     }
+    // le reste attend que le doigt se lève (ou une pause franche)
     clearTimeout(attenteResultats);
-    attenteResultats = setTimeout(appliquerPlages, 450);
+    attenteResultats = setTimeout(appliquerPlages, 900);
   }
 
   function appliquerPlages() {
     clearTimeout(attenteResultats);
+    document.querySelector('.frise').classList.remove('glisse');
+    sauver();
     etat.ouverts.clear();
     majResultats();
   }
@@ -1201,7 +1166,6 @@ ${passees.length ? `<h3 class="pa-titre">Historique</h3>${passees.map(carteAntic
     }
     majReglages();
     majResultats();
-    demarrerHorloge();
     pret = true;
     app.addEventListener('click', surClic);
     app.addEventListener('input', surCurseur);
